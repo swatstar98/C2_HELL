@@ -426,3 +426,8 @@ html,body{font-size:calc(16px*var(--u))}
 @media (prefers-reduced-motion:reduce){.screen.menu::before{animation:none}}
 .mt .lb{overflow-wrap:break-word;word-break:normal}
 .mgrid .mt,.mbar .mt{font-size:calc(13px*var(--u));letter-spacing:.04em}
+.mbar .mt .lb{display:none}
+.mbar .mt{min-height:60px;justify-content:center}
+.mbar .mt .ic{font-size:calc(28px*var(--u))}
+.mbar .mt .ic{font-size:calc(34px*var(--u));font-weight:700;color:var(--cyan)}
+.mbar .mt.store .ic{color:var(--amber)}

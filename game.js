@@ -2374,7 +2374,7 @@ function showArchive(id) {
 function showMenu() {
   if (!(G && !G.over && G.hist) && ERA) applyEra(null);   // al salir de una misión histórica se restaura el orden de batalla y la piel moderna
   if (G) { G.speed = 0; }
-  const tile = (a, label, cls) => { const m = /^(\S+)\s+(.*)$/.exec(label); const ic = m && !/[\p{L}\p{N}]/u.test(m[1]) ? m[1] : ''; return '<button class="mt ' + (cls || '') + '" data-a="' + a + '"><span class="ic">' + (ic || '◈') + '</span><span class="lb">' + (ic ? m[2] : label) + '</span></button>'; };
+  const tile = (a, label, cls) => { const m = /^(\S+)\s+(.*)$/.exec(label); const ic = m && !/[\p{L}\p{N}]/u.test(m[1]) ? m[1] : ''; return '<button class="mt ' + (cls || '') + '" data-a="' + a + '" aria-label="' + label.replace(/"/g, '') + '"><span class="ic">' + (ic || '◈') + '</span><span class="lb">' + (ic ? m[2] : label) + '</span></button>'; };
   const hasRes = G && !G.over && !G.demo, hasStore = Store.on() && !Store.full();
   const o = showOverlay('<div class="mhead"><h1 class="title">C2<em>HELL</em></h1><div class="tag">AIR DEFENSE COMMAND &amp; CONTROL — LITE SIM</div></div>' +
     '<nav class="mnav">' + (hasRes ? tile('resume', tr('m.resume'), 'res') : '') +
