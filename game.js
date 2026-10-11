@@ -2371,6 +2371,54 @@ function showArchive(id) {
   html += '<div class="sub">' + tr('h.gloss') + '</div>' + C.gloss.map(g => '<details class="arc"><summary>' + ht(g[0]) + '</summary><p>' + ht(g[1]) + '</p></details>').join('') + '<button class="big" data-a="back">' + tr('back') + '</button>';
   const o = showOverlay(html); $('[data-a=back]', o).onclick = () => showCamp(id);
 }
+/* Radar animado del menú principal: mismos glifos NTDS que el mapa (amigo/hostil/desconocido, bases, sitios), con barrido y fundido por pasada. */
+function menuRadar(o) {
+  const scr = o.firstChild, c = document.createElement('canvas'); c.className = 'mradar'; scr.insertBefore(c, scr.firstChild);
+  const g = c.getContext('2d'), dpr = Math.min(window.devicePixelRatio || 1, 2), still = matchMedia('(prefers-reduced-motion:reduce)').matches;
+  let W = 0, H = 0, last = performance.now(), T = still ? 6 : 0;
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const hostile = (kind) => { const a = rnd(0, 7), r = 1.08, sp = rnd(.035, .06); return { k: kind, x: Math.cos(a) * r, y: Math.sin(a) * r, vx: -Math.cos(a + rnd(-.25, .25)) * sp, vy: -Math.sin(a + rnd(-.25, .25)) * sp, sweep: true, col: C.red }; };
+  const P = [
+    { k: 'cmdF', x: 0, y: 0, col: C.blue, s: 1.25 },
+    { k: 'landF', x: -.42, y: .3, col: C.blue }, { k: 'landF', x: .38, y: .42, col: C.blue }, { k: 'landF', x: .12, y: -.46, col: C.blue },
+    { k: 'landE', x: .72, y: -.52, col: C.red, sweep: true }, { k: 'landE', x: -.7, y: -.4, col: C.red, sweep: true },
+    { k: 'airF', x: -.2, y: -.2, vx: .03, vy: -.012, col: C.blue, loop: true }, { k: 'airF', x: .25, y: .15, vx: -.025, vy: .02, col: C.blue, loop: true },
+    hostile('airE'), hostile('airE'), hostile('misE'), hostile('airE'), { ...hostile('airU'), col: Y }
+  ];
+  P.slice(8).forEach((p, i) => { const k = i * .35; p.x += p.vx * k * 40; p.y += p.vy * k * 40; });
+  const chars = { cmdF: NT.cmdF, landF: NT.landF, landE: NT.landE, airF: NT.airF, airE: NT.airE, misE: NT.misE, airU: NT.airU };
+  const tick = now => {
+    if (!c.isConnected || $('#overlay').classList.contains('hidden')) return;
+    const dt = Math.min(.05, (now - last) / 1000); last = now; if (!still) T += dt;
+    if (scr.clientWidth !== W || scr.clientHeight !== H) { W = scr.clientWidth; H = scr.clientHeight; c.width = W * dpr; c.height = H * dpr; }
+    const cx = W / 2, cy = H * .4, R = Math.min(W * .46, H * .27), th = (T * 2 * Math.PI / 9) % (2 * Math.PI);
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+    g.strokeStyle = 'rgba(79,224,232,.16)'; g.lineWidth = 1;
+    for (const f of [.33, .66, 1]) { g.beginPath(); g.arc(cx, cy, R * f, 0, 7); g.stroke(); }
+    g.beginPath(); g.moveTo(cx - R, cy); g.lineTo(cx + R, cy); g.moveTo(cx, cy - R); g.lineTo(cx, cy + R); g.stroke();
+    if (g.createConicGradient) { const gr = g.createConicGradient(th - Math.PI * .55, cx, cy); gr.addColorStop(0, 'rgba(53,208,127,0)'); gr.addColorStop(.15, 'rgba(53,208,127,.3)'); gr.addColorStop(.151, 'rgba(53,208,127,0)'); gr.addColorStop(1, 'rgba(53,208,127,0)'); g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, R, 0, 7); g.fill(); }
+    g.strokeStyle = 'rgba(53,208,127,.7)'; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(th) * R, cy + Math.sin(th) * R); g.stroke();
+    if (fontReady) {
+      const old = ctx; ctx = g;
+      try {
+        for (const p of P) {
+          if (p.vx !== undefined && !still) {
+            p.x += p.vx * dt; p.y += p.vy * dt;
+            if (p.loop && Math.hypot(p.x, p.y) > .6) { p.vx = -p.vx; p.vy = -p.vy; p.x += p.vx * dt * 2; p.y += p.vy * dt * 2; }
+            if (!p.loop && (Math.hypot(p.x, p.y) < .1 || Math.hypot(p.x, p.y) > 1.2)) Object.assign(p, hostile(p.k), p.k === 'airU' ? { col: Y } : {});
+          }
+          const ang = Math.atan2(p.y, p.x), d = (((th - ang) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+          g.globalAlpha = p.sweep ? .18 + .82 * (1 - d / (2 * Math.PI)) : .92;
+          g.save(); g.translate(cx + p.x * R, cy + p.y * R);
+          const hd = p.vx !== undefined ? hdgChar(Math.atan2(p.vy, p.vx)) : '';
+          ntdsGlyph(chars[p.k] + (p.k.startsWith('air') && p.k !== 'airU' || p.k === 'misE' ? hd : ''), p.col, 26 * (p.s || 1)); g.restore();
+        }
+      } finally { ctx = old; g.globalAlpha = 1; }
+    }
+    if (!still) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
 function showMenu() {
   if (!(G && !G.over && G.hist) && ERA) applyEra(null);   // al salir de una misión histórica se restaura el orden de batalla y la piel moderna
   if (G) { G.speed = 0; }
@@ -2381,7 +2429,7 @@ function showMenu() {
     tile('camp', tr('m.camp'), 'hero go') + tile('hist', '🎖 ' + tr('m.hist'), 'hero') +
     '<div class="mgrid">' + tile('modes', tr('m.modes')) + tile('ach', tr('m.ach', { a: Object.keys(progress().ach).length, b: ACH.length })) + '</div>' +
     '<div class="mbar">' + tile('help', tr('m.help'), 'sm') + tile('set', tr('m.set'), 'sm') + (hasStore ? tile('store', '🔓 ' + tr('st.title'), 'sm store') : '') + '</div></nav>');
-  o.firstChild.classList.add('menu');
+  o.firstChild.classList.add('menu'); menuRadar(o);
   if ($('[data-a=store]', o)) $('[data-a=store]', o).onclick = () => showStore(showMenu);
   $('[data-a=camp]', o).onclick = () => { if (!SET.tutDone && !/[?&]unlock/.test(location.search)) startTutorial(); else showLevels(); }; $('[data-a=hist]', o).onclick = showHist; $('[data-a=modes]', o).onclick = showModes; $('[data-a=ach]', o).onclick = () => showAch(showMenu); $('[data-a=help]', o).onclick = () => showHelp(showMenu); $('[data-a=set]', o).onclick = () => showSettings(showMenu);
   const r = $('[data-a=resume]', o); if (r) r.onclick = () => o.classList.add('hidden');
