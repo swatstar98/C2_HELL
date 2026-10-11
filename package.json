@@ -19,7 +19,9 @@
     "server": "node server/server.js",
     "sync:store": "npm run www:store && cap sync && node tools/patch_native.js",
     "android:aab:store": "npm run sync:store && cd android && ./gradlew bundleRelease",
-    "www:store": "node tools/build_www.js --store"
+    "www:store": "node tools/build_www.js --store",
+    "apk": "node tools/make_apk.js",
+    "aab": "node tools/make_apk.js --release"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",

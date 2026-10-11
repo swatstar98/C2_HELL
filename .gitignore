@@ -6,3 +6,4 @@ server/data/
 *.keystore
 *.jks
 .env
+dist/
