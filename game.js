@@ -191,9 +191,15 @@ const bg = document.createElement('canvas');
 
 function saveGet() { try { return JSON.parse(localStorage.getItem('c2hell.save') || '{}'); } catch (e) { return {}; } }
 function savePut(o) { try { localStorage.setItem('c2hell.save', JSON.stringify(o)); } catch (e) { /* sin almacenamiento */ } }
-const SET = Object.assign({ snd: true, vib: true, rings: true, scale: 1, tutDone: false, cos: {}, diff: 'normal' }, saveGet().set || {});
+const SET = Object.assign({ snd: true, vib: true, rings: true, scale: 1, tutDone: false, cos: {}, diff: 'normal', music: true, voice: true, cb: false, ui: 1, ap: false }, saveGet().set || {});
 function saveSet() { const o = saveGet(); o.set = SET; savePut(o); }
-const FXS = { shake: 0, flash: 0, hold: 0, pulse: 0, lt: 0 };
+const CB = { red: '#ff8a1f', green: '#56d4ff', amber: '#f0e442' }, CN = { red: C.red, green: C.green, amber: C.amber };   // modo daltónico: naranja / celeste / amarillo en lugar de rojo / verde / ámbar
+function applyA11y() {
+  Object.assign(C, SET.cb ? CB : CN); const r = document.documentElement;
+  if (SET.cb) r.setAttribute('data-cb', '1'); else r.removeAttribute('data-cb');
+  r.setAttribute('data-ui', String(SET.ui || 1)); SND.musicOn = SET.music !== false;
+}
+const FXS = { shake: 0, flash: 0, hold: 0, pulse: 0, lt: 0, slow: 0 };
 function floatTxt(x, y, txt, col) { if (!G) return; if (G.floats.length > 40) G.floats.shift(); G.floats.push({ x, y, txt, col, t: 0 }); }
 function buzz(ms) { if (SET.vib && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) { /* sin vibración */ } } }
 
@@ -219,7 +225,7 @@ function newGame(n, cfg) {
   if (UI.tab !== 'def' && UI.tab !== 'air' && UI.tab !== 'rad') UI.tab = 'def';
   $('#log').innerHTML = ''; hidePanel(); setHint(null);
   G.demo = false; G.floats = []; G.craters = []; G.evIdx = 0; G.order = null; G.waveStat = []; G.victory = null; G.zoom = 1; G.hl = null; $('#toasts').innerHTML = ''; G.stats.blind = 0; G.stats.dry = 0; G.stats.leakKind = {};
-  FXS.shake = 0; FXS.flash = 0; FXS.hold = 0; FXS.pulse = 0;
+  FXS.shake = 0; FXS.flash = 0; FXS.hold = 0; FXS.pulse = 0; FXS.slow = 0; RP.buf = []; RP.acc = 0;
   buildDock(); setPhase('prep'); refreshTop();
   $('#overlay').classList.add('hidden');
   G.tut = (!cfg && n === 1 && !SET.tutDone) ? { i: 0 } : null;
@@ -258,7 +264,17 @@ function integrity() {
 /* ============================ AUDIO ============================ */
 const SND = {
   on: true, ac: null, last: {},
-  init() { if (this.ac) return; try { this.ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { /* sin audio */ } },
+  init() {
+    if (!this.ac) {
+      try {
+        this.ac = new (window.AudioContext || window.webkitAudioContext)();
+        this.sbus = this.ac.createGain(); this.sbus.connect(this.ac.destination);
+        this.mbus = this.ac.createGain(); this.mbus.gain.value = .55; this.mbus.connect(this.ac.destination);
+      } catch (e) { this.ac = null; return; }
+    }
+    if (this.ac.state === 'suspended') { try { this.ac.resume(); } catch (e) { /* iOS: se reintenta con el siguiente gesto */ } }
+    this.musicStart();
+  },
   gate(key) { const n = performance.now(); if (n - (this.last[key] || 0) < 70) return false; this.last[key] = n; return true; },
   tone(f, d, type, v, slide, key) {
     if (!this.on || !this.ac || !this.gate(key)) return;
@@ -266,13 +282,13 @@ const SND = {
     o.type = type; o.frequency.setValueAtTime(f, t);
     if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f + slide), t + d);
     g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
-    o.connect(g); g.connect(this.ac.destination); o.start(); o.stop(t + d);
+    o.connect(g); g.connect(this.sbus); o.start(); o.stop(t + d);
   },
   noise(d, v, key) {
     if (!this.on || !this.ac || !this.gate(key)) return;
     const n = Math.floor(this.ac.sampleRate * d), buf = this.ac.createBuffer(1, n, this.ac.sampleRate), ch = buf.getChannelData(0);
     for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
-    const s = this.ac.createBufferSource(), g = this.ac.createGain(); g.gain.value = v; s.buffer = buf; s.connect(g); g.connect(this.ac.destination); s.start();
+    const s = this.ac.createBufferSource(), g = this.ac.createGain(); g.gain.value = v; s.buffer = buf; s.connect(g); g.connect(this.sbus); s.start();
   },
   launch() { this.tone(520, .22, 'sawtooth', .025, -380, 'l'); },
   boom() { this.noise(.3, .09, 'b'); },
@@ -284,7 +300,61 @@ const SND = {
   star(i) { this.tone(520 * Math.pow(1.26, i), .35, 'triangle', .07, 0, 'st' + i); },
   ach() { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => this.tone(f, .22, 'triangle', .06, 0, 'ach' + i), i * 90)); },
   fanfare() { [392, 523, 659, 784, 1047].forEach((f, i) => setTimeout(() => { this.tone(f, .5, 'triangle', .07, 0, 'fa' + i); this.tone(f / 2, .5, 'sawtooth', .02, 0, 'fb' + i); }, i * 140)); },
+  /* música adaptativa y procedural: pad en La menor (Am-F-C-G); la intensidad añade bajo, arpegio, charles y bombo */
+  mus: null, musicOn: true,
+  musicStart() {
+    if (!this.ac || this.mus) return;
+    this.mus = { step: 0, next: this.ac.currentTime + .2, lvl: 0, timer: setInterval(() => this.musicSched(), 100) };
+  },
+  musicSched() {
+    const m = this.mus, ac = this.ac; if (!m || !ac) return;
+    if (!this.on || !this.musicOn || ac.state !== 'running') { m.next = ac.currentTime + .2; return; }
+    const bpm = [72, 84, 96, 112][m.lvl], d = 60 / bpm / 4;
+    while (m.next < ac.currentTime + .3) { this.musicStep(m.step++, m.next, d, m.lvl); m.next += d; }
+  },
+  mtone(f, t, len, type, vol, atk, lp) {
+    const ac = this.ac, o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = f;
+    g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(vol, t + atk); g.gain.exponentialRampToValueAtTime(.0001, t + len);
+    let n = o; if (lp) { const q = ac.createBiquadFilter(); q.type = 'lowpass'; q.frequency.value = lp; o.connect(q); n = q; }
+    n.connect(g); g.connect(this.mbus); o.start(t); o.stop(t + len + .05);
+  },
+  musicStep(i, t, d, lvl) {
+    const bar = Math.floor(i / 16), s = i % 16, ch = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]][Math.floor(bar / 2) % 4], f = n => 440 * Math.pow(2, (n - 69) / 12);
+    if (s === 0 && bar % 2 === 0) { for (const n of ch) { this.mtone(f(n), t, d * 32, 'triangle', .05, .7, 900); this.mtone(f(n) * 1.004, t, d * 32, 'sawtooth', .012, .9, 700); } }
+    if (lvl === 0 && s === 8 && bar % 2 === 1) this.mtone(f(ch[2] + 24), t, d * 8, 'sine', .03, .01, 0);
+    if (lvl >= 1 && s % 4 === 0) this.mtone(f(ch[0] - 24), t, d * 3.2, 'triangle', .13, .02, 400);
+    if (lvl >= 2 && s % 2 === 0) this.mtone(f(ch[(s / 2) % 3] + 12), t, d * 1.6, 'square', .02, .005, 1800);
+    if (lvl >= 2 && s % 4 === 2) this.mnoise(t, .03, .02);
+    if (lvl >= 3 && s % 4 === 0) { const ac = this.ac, o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(40, t + .14); g.gain.setValueAtTime(.2, t); g.gain.exponentialRampToValueAtTime(.0001, t + .16); o.connect(g); g.connect(this.mbus); o.start(t); o.stop(t + .2); }
+    if (lvl >= 3 && s % 2 === 1) this.mnoise(t, .02, .012);
+  },
+  mnoise(t, len, vol) {
+    const ac = this.ac, n = Math.floor(ac.sampleRate * len), buf = ac.createBuffer(1, n, ac.sampleRate), ch = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const sr = ac.createBufferSource(), g = ac.createGain(), q = ac.createBiquadFilter(); q.type = 'highpass'; q.frequency.value = 6000; g.gain.value = vol; sr.buffer = buf; sr.connect(q); q.connect(g); g.connect(this.mbus); sr.start(t);
+  },
+  setMusic(l) { if (this.mus) this.mus.lvl = l; },
   lose() { [330, 262, 196].forEach((f, i) => setTimeout(() => this.tone(f, .5, 'sawtooth', .05, -20, 'lo' + i), i * 260)); }
+};
+
+/* ============================ VOCES DEL MANDO (síntesis de voz del sistema) ============================ */
+const VLANG = { es: 'es-ES', en: 'en-US', fr: 'fr-FR', de: 'de-DE', pt: 'pt-PT' };
+const VO = {
+  last: {}, v: {},
+  voice(lang) {
+    if (this.v[lang] !== undefined) return this.v[lang];
+    let best = null; try { const vs = speechSynthesis.getVoices(); if (!vs.length) return null; const p = lang.slice(0, 2); best = vs.find(x => x.lang === lang) || vs.find(x => x.lang.slice(0, 2) === p) || null; } catch (e) { return null; }
+    return (this.v[lang] = best);
+  },
+  say(key, p, prio, gap) {
+    if (!SET.voice || !SND.on || !window.speechSynthesis || !window.SpeechSynthesisUtterance || (G && G.demo)) return;
+    const now = performance.now(); if (now - (this.last[key] || 0) < (gap || 6000)) return; this.last[key] = now;
+    try {
+      const u = new SpeechSynthesisUtterance(tr('vo.' + key, p)); u.lang = VLANG[I18N.lang] || 'en-US'; u.rate = 1.1; u.pitch = .85; u.volume = .9;
+      const v = this.voice(u.lang); if (v) u.voice = v;
+      if (prio) speechSynthesis.cancel(); speechSynthesis.speak(u);
+    } catch (e) { /* sin síntesis de voz */ }
+  }
 };
 
 /* ============================ LOG / HUD ============================ */
@@ -633,8 +703,10 @@ function spawnWave(w, idx) {
   }
   G.pending.push(...batch); const n = batch.length;
   G.waveStat[idx] = { total: 0, leaked: 0, done: false };
+  VO.say('wave', { i: idx + 1, n }, true, 1500);
   log(G.lv.endless ? tr('log.waveE', { i: idx + 1, n }) : tr('log.wave', { i: idx + 1, m: G.lv.waves.length, n }), 'warn'); SND.ping();
   const cnt = { drone: 0, cruise: 0, ballistic: 0, arm: 0 }; for (const it of w.items) cnt[it.kind === 'decoy' ? 'drone' : it.kind] += it.count;
+  if (cnt.ballistic) VO.say('bal'); if (cnt.arm) VO.say('arm');
   banner(tr('wave.word') + ' ' + (idx + 1) + (G.lv.endless ? '' : '/' + G.lv.waves.length) + '<small>' + [cnt.drone && KIND_LBL.drone + ' ×' + cnt.drone, cnt.cruise && KIND_LBL.cruise + ' ×' + cnt.cruise, cnt.ballistic && KIND_LBL.ballistic + ' ×' + cnt.ballistic, cnt.arm && 'ARM ×' + cnt.arm].filter(Boolean).join(' · ') + (ft ? '<br>' + tr(twoAxis ? 'wave.twoAxis' : 'wave.focus', { n: ft.name }) : '') + '</small>');
 }
 function emitters() { const L = []; for (const u of G.units) if (u.def.radar || u.def.sensor) L.push(u); for (const a of G.assets) if (a.radar && a.hp > 0) L.push(a); return L; }
@@ -726,7 +798,8 @@ function impact(t) {
     floatTxt(a.x, a.y - 26, '−' + Math.round(dmg) + '%', C.red); FXS.shake = Math.min(1, FXS.shake + (t.kind === 'ballistic' ? .9 : .3)); FXS.flash = Math.min(.5, FXS.flash + .22); buzz(t.kind === 'ballistic' ? 160 : 45);
     fx(a.x + rnd(-12, 12), a.y + rnd(-12, 12), C.red, t.kind === 'ballistic' ? 46 : 26, .9); SND.impact();
     log(tr('log.hit', { tag: t.D.tag, n: a.name, hp: Math.round(a.hp) }), 'bad');
-    if (a.hp <= 0) { log(tr('log.destroyed', { n: a.name }), 'bad'); if (a.type === 'airbase') baseLost(a); }
+    if (a.hp <= 0) { log(tr('log.destroyed', { n: a.name }), 'bad'); VO.say('lost', { n: a.name }, true, 800); FXS.slow = 1.8; if (a.type === 'airbase') baseLost(a); }
+    else { VO.say('hit', { n: a.name }, true, 7000); if (t.kind === 'ballistic' || a.type === 'capital') FXS.slow = Math.max(FXS.slow, .9); }
   } else fx(a.x, a.y, C.dim, 12, .4);
 }
 function updateDetection() {
@@ -812,7 +885,7 @@ function updateAir(a, dt) {
     if (flyTo(a, m.site.x, m.site.y, dt)) {
       const p = strikeP(D, m.site); G.stats.strikes++;
       if (Math.random() < p) {
-        m.site.alive = false; G.stats.sitesKilled++; if (G.waveIdx <= 2) G.stats.earlySite = true; G.craters.push({ x: m.site.x, y: m.site.y }); FXS.hold = Math.max(FXS.hold, .1); fx(m.site.x, m.site.y, C.amber, 40, 1.2); SND.impact(); G.credits += 60; floatTxt(m.site.x, m.site.y - 20, '+60', C.amber);
+        VO.say('site', null, false, 5000); m.site.alive = false; G.stats.sitesKilled++; if (G.waveIdx <= 2) G.stats.earlySite = true; G.craters.push({ x: m.site.x, y: m.site.y }); FXS.hold = Math.max(FXS.hold, .1); fx(m.site.x, m.site.y, C.amber, 40, 1.2); SND.impact(); G.credits += 60; floatTxt(m.site.x, m.site.y - 20, '+60', C.amber);
         log(tr('log.siteKilled', { s: m.site.name, a: a.label }), 'good');
         const dropped = G.pending.filter(q => q.site === m.site).length; G.pending = G.pending.filter(q => q.site !== m.site);
         if (dropped) log(tr('log.cancelled', { n: dropped }), 'good');
@@ -865,7 +938,7 @@ function resolveWaves() {
     const pct = Math.round((ws.total - ws.leaked) / ws.total * 100), last = i === G.lv.waves.length - 1;
     if (ws.leaked === 0) {
       G.stats.cleanWaves++; FXS.pulse = 1;
-      if (!last) { banner(tr('wave.clean') + '<small>' + tr('wave.cleanSub', { n: ws.total }) + '</small>'); SND.chime(); }
+      if (!last) { VO.say('clean', null, false, 8000); banner(tr('wave.clean') + '<small>' + tr('wave.cleanSub', { n: ws.total }) + '</small>'); SND.chime(); }
     } else if (!last && pct >= 50) toast(tr('wave.held', { i: i + 1, p: pct }), '');
   }
 }
@@ -875,7 +948,7 @@ function runEvent(ev) {
     const w = e => e.def ? (EM_W[e.def.id] || 1) : 2; let r = Math.random() * em.reduce((a, e) => a + w(e), 0), e0 = em[0];
     for (const e of em) { r -= w(e); if (r <= 0) { e0 = e; break; } }
     e0.jam = 16; e0.offT = 0; G.stats.jams++;
-    banner(tr('banner.jam', { n: e0.name })); log(tr('log.jam', { n: e0.name }), 'bad'); SND.ping(); buzz(40);
+    VO.say('jam', null, true, 4000); banner(tr('banner.jam', { n: e0.name })); log(tr('log.jam', { n: e0.name }), 'bad'); SND.ping(); buzz(40);
     if (UI.tab !== 'rad' && UI.mode === 'idle') { UI.tab = 'rad'; buildDock(); }
   } else if (ev.kind === 'surprise') {
     const cand = G.assets.filter(a => a.hp > 0 && a.type !== 'capital'), tgt = cand.length ? pick(cand) : pickTargetAsset(); if (!tgt) return;
@@ -883,19 +956,19 @@ function runEvent(ev) {
     for (let i = 0; i < 40; i++) { const side = pick(['t', 'l', 'r']), x = side === 'l' ? -8 : side === 'r' ? WW + 8 : rnd(100, WW - 100), y = side === 't' ? -8 : rnd(80, WH * .6); sx = x; sy = y; if (!onLand(clamp(x, 4, WW - 4), clamp(y, 4, WH - 4))) break; }
     const site = { x: sx, y: sy, alive: true, name: tr('surprise.name') };
     for (let i = 0; i < ev.n; i++) G.pending.push({ kind: 'drone', site, wave: -1, delay: rnd(0, 3), target: tgt, evasive: false });
-    banner(tr('banner.surprise', { n: tgt.name })); log(tr('log.surprise', { n: tgt.name }), 'bad'); SND.ping(); buzz(50);
+    VO.say('surprise', null, true, 4000); banner(tr('banner.surprise', { n: tgt.name })); log(tr('log.surprise', { n: tgt.name }), 'bad'); SND.ping(); buzz(50);
   } else if (ev.kind === 'reinforce') {
     const bs = airbases().filter(b => b.hp > 0 && baseCount(b) < baseCap());
     if (bs.length) {
       const sd = b => Math.min(...G.sites.map(s => dst(b.x, b.y, s.x, s.y))); bs.sort((a, b) => sd(b) - sd(a));
       const type = G.n >= 7 ? 'f15e' : 'f16'; G.air.push(mkAir(type, ++G.id, bs[0]));
-      banner(tr('banner.reinforce', { a: AIR[type].short, b: bs[0].name })); buildDock();
+      VO.say('reinforce', null, false, 4000); banner(tr('banner.reinforce', { a: AIR[type].short, b: bs[0].name })); buildDock();
     } else { G.credits += 150; banner(tr('banner.reinforceCr', { c: 150 })); }
     SND.chime();
   } else if (ev.kind === 'order') {
     const cand = G.assets.filter(a => a.hp > 0), tgt = cand.slice().sort((a, b) => b.tw - a.tw)[0]; if (!tgt || G.order) return;
     G.order = { asset: tgt, until: G.t + 40, hp0: tgt.hp };
-    banner(tr('banner.order', { n: tgt.name })); log(tr('log.order', { n: tgt.name }), 'warn'); SND.ping();
+    VO.say('order', { n: tgt.name }, false, 4000); banner(tr('banner.order', { n: tgt.name })); log(tr('log.order', { n: tgt.name }), 'warn'); SND.ping();
   }
 }
 function updateEvents(dt) {
@@ -915,7 +988,7 @@ function updateEvents(dt) {
   }
 }
 function step(dt) {
-  G.t += dt;
+  G.t += dt; rpRec(dt);
   G.credits += G.lv.income * dt;
   for (const a of G.assets) if (a.rdown > 0) { a.rdown = Math.max(0, a.rdown - dt); if (a.rdown === 0) log(tr('log.radarUp', { n: a.name }), 'good'); }
   if (G.lv.endless && G.phase === 'ops') while (G.lv.waves.length <= G.waveIdx + 1) G.lv.waves.push(endlessWave(G.lv.waves.length, G.lv));
@@ -982,8 +1055,33 @@ function pickTargetFor(D, sx, sy) {
   }
   return best;
 }
-function hidePanel() { G && (G.sel = null); $('#panel').classList.add('hidden'); }
-function select(sel) { G.sel = sel; renderPanel(); }
+function hidePanel() { if (G) { G.sel = null; const z = G.apz; G.apz = 0; if (z && !G.over) setSpeed(z); } $('#panel').classList.add('hidden'); }
+function select(sel) {
+  if (SET.ap && G.speed > 0 && G.phase === 'ops' && !G.demo && !G.over) { G.apz = G.speed; setSpeed(0); }
+  G.sel = sel; renderPanel();
+}
+/* repetición de los últimos segundos: instantáneas a 10 Hz que se reproducen sobre el mapa */
+const RP = { buf: [], acc: 0, HZ: 10, SEC: 14 };
+function rpRec(dt) {
+  RP.acc += dt; if (RP.acc < 1 / RP.HZ || G.over) return; RP.acc = 0;
+  const cp = a => a.map(o => Object.assign({}, o));
+  RP.buf.push({ threats: cp(G.threats.filter(t => t.alive)), air: cp(G.air), missiles: cp(G.missiles), units: cp(G.units), assets: cp(G.assets), fx: cp(G.fx), radars: G.radars });
+  if (RP.buf.length > RP.HZ * RP.SEC) RP.buf.shift();
+}
+function startReplay(done) {
+  if (!G || RP.buf.length < 8) { done(); return; }
+  G.rp = { i: 0, acc: 0, done, saved: { threats: G.threats, air: G.air, missiles: G.missiles, units: G.units, assets: G.assets, fx: G.fx, radars: G.radars, sel: G.sel } };
+  G.sel = null; $('#overlay').classList.add('hidden'); $('#rpbar').classList.remove('hidden'); rpApply();
+}
+function rpApply() { const f = RP.buf[G.rp.i]; G.threats = f.threats; G.air = f.air; G.missiles = f.missiles; G.units = f.units; G.assets = f.assets; G.fx = f.fx; G.radars = f.radars; $('#rpfill').style.width = (100 * G.rp.i / RP.buf.length) + '%'; }
+function rpAdvance(dt) {
+  const r = G.rp; r.acc += dt;
+  while (r.acc >= 1 / RP.HZ) { r.acc -= 1 / RP.HZ; r.i++; if (r.i >= RP.buf.length) { endReplay(); return; } }
+  rpApply();
+}
+function endReplay() {
+  const r = G.rp; if (!r) return; Object.assign(G, r.saved); G.rp = null; $('#rpbar').classList.add('hidden'); r.done();
+}
 const pb = (v, mx, col) => '<div class="pb"><i style="width:' + clamp(v / mx * 100, 0, 100) + '%' + (col ? ';background:' + col : '') + '"></i></div>';
 const refund = u => G.phase === 'prep' ? (u.paid || u.def.cost) : Math.round(u.def.cost * .6);
 const fwdDist = b => Math.round(Math.min(...G.sites.filter(q => q.alive).map(q => dst(b.x, b.y, q.x, q.y)), 9999));
@@ -1666,7 +1764,7 @@ function endMode(win) {
   p.cp += pm; savePut(p);
   const ach = checkAch(true), data = { win, m, score, pm, ig, rank, first, newBest, ach, waves: G.waveIdx };
   if (G.tut) endTut();
-  if (win) startVictory(data, () => showModeEnd(data)); else { SND.lose(); buzz(120); setTimeout(() => showModeEnd(data), 900); }
+  if (win) startVictory(data, () => showModeEnd(data)); else { SND.lose(); buzz(120); VO.say('lose', null, true, 500); setTimeout(() => showModeEnd(data), 900); }
 }
 function showModeEnd(d) {
   const s = G.stats, p = progress(), e = p.endless;
@@ -1677,10 +1775,10 @@ function showModeEnd(d) {
   const o = showOverlay('<h2 class="stamp ' + (d.win ? 'win' : 'lose') + '">' + head + '</h2><div class="tags">' + tags + '</div><div class="kv"><span>' + tr('md.score') + '</span><span class="amber">' + d.score + '</span>' +
     (d.m === 'endless' ? '<span>' + tr('md.waves') + '</span><span>' + d.waves + '</span>' : '') +
     '<span>' + tr('end.pm') + '</span><span class="amber">+' + d.pm + ' ' + tr('unit.pm') + '</span><span>' + tr('end.integ') + '</span><span>' + d.ig + '%</span><span>' + tr('end.kills') + '</span><span>' + s.kills + '</span><span>' + tr('end.leaked') + '</span><span>' + s.leaked + '</span><span>' + tr('pz.time') + '</span><span>' + mmss(G.t) + '</span></div>' + top + ach +
-    '<div class="endbtns"><button class="big go" data-a="retry">' + tr('end.retry') + '</button><button class="big" data-a="modes">' + tr('md.title') + '</button><button class="big" data-a="menu">' + tr('back.menu') + '</button></div>');
+    '<div class="endbtns">' + (!d.win && RP.buf.length >= 8 ? '<button class="big" data-a="replay">' + tr('rp.btn') + '</button>' : '') + '<button class="big go" data-a="retry">' + tr('end.retry') + '</button><button class="big" data-a="modes">' + tr('md.title') + '</button><button class="big" data-a="menu">' + tr('back.menu') + '</button></div>');
   const cfg = G.cfg;
   $('[data-a=retry]', o).onclick = () => newGame(G.n, d.m === 'endless' ? endlessConfig() : cfg);
-  $('[data-a=modes]', o).onclick = showModes; $('[data-a=menu]', o).onclick = showMenu;
+  $('[data-a=modes]', o).onclick = showModes; $('[data-a=menu]', o).onclick = showMenu; if ($('[data-a=replay]', o)) $('[data-a=replay]', o).onclick = () => startReplay(() => showModeEnd(d));
 }
 function showModeBrief(cfg) {
   const lv = buildModeLevel(cfg), p = progress();
@@ -1884,11 +1982,13 @@ function showSettings(back) {
   const langSeg = I18N.langs.map(l => '<button class="pbtn' + (I18N.lang === l.code ? ' sel' : '') + '" data-lang="' + l.code + '">' + l.name + '</button>').join('');
   const diffSeg = ['normal', 'veteran', 'expert'].map(d => '<button class="pbtn' + (SET.diff === d ? ' sel' : '') + '" data-d="' + d + '">' + tr('diff.' + d) + '</button>').join('');
   const o = showOverlay('<h2>' + tr('set.title') + '</h2><div class="opt"><span>' + tr('set.diff') + '</span><div class="seg">' + diffSeg + '</div></div><div class="opt"><span>' + tr('set.lang') + '</span><div class="seg">' + langSeg + '</div></div>' + onoff('snd', tr('set.snd')) + onoff('vib', tr('set.vib')) + onoff('rings', tr('set.rings')) +
-    '<div class="opt"><span>' + tr('set.scale') + '</span><div class="seg">' + seg + '</div></div>' +
+    '<div class="opt"><span>' + tr('set.scale') + '</span><div class="seg">' + seg + '</div></div>' + onoff('music', tr('set.music')) + onoff('voice', tr('set.voice')) + onoff('cb', tr('set.cb')) + onoff('ap', tr('set.ap')) +
+    '<div class="opt"><span>' + tr('set.ui') + '</span><div class="seg">' + [[1, 'A'], [1.15, 'A+'], [1.3, 'A++']].map(([v, l]) => '<button class="pbtn' + (SET.ui === v ? ' sel' : '') + '" data-ui="' + v + '">' + l + '</button>').join('') + '</div></div>' +
     '<button class="big" data-a="fs">' + tr('set.fs') + '</button><button class="big" data-a="tut">' + tr('set.tut') + '</button><button class="big" data-a="reset">' + tr('set.reset') + '</button><button class="big" data-a="back">' + tr('back') + '</button>');
   $$('[data-d]', o).forEach(b => b.onclick = () => { SET.diff = b.dataset.d; saveSet(); showSettings(back); });
   $$('[data-lang]', o).forEach(b => b.onclick = () => { I18N.setLang(b.dataset.lang); showSettings(back); });
-  $$('[data-k]', o).forEach(b => b.onclick = () => { const k = b.dataset.k; SET[k] = !SET[k]; if (k === 'snd') { SND.on = SET.snd; SND.init(); } saveSet(); showSettings(back); });
+  $$('[data-k]', o).forEach(b => b.onclick = () => { const k = b.dataset.k; SET[k] = !SET[k]; if (k === 'snd') { SND.on = SET.snd; SND.init(); } if (k === 'voice' && !SET.voice && window.speechSynthesis) speechSynthesis.cancel(); applyA11y(); saveSet(); showSettings(back); });
+  $$('[data-ui]', o).forEach(b => b.onclick = () => { SET.ui = +b.dataset.ui; applyA11y(); saveSet(); showSettings(back); });
   $$('[data-sc]', o).forEach(b => b.onclick = () => { SET.scale = +b.dataset.sc; saveSet(); resize(); showSettings(back); });
   $('[data-a=fs]', o).onclick = toggleFS;
   $('[data-a=tut]', o).onclick = () => { SET.tutDone = false; saveSet(); const t = $('[data-a=tut]', o); t.textContent = tr('set.tutDone'); };
@@ -1945,13 +2045,13 @@ function endLevel(win) {
   if (G.tut) endTut();
   const data = { win, st, ig, ratio, econ, pm, medals, recs, unl, ach, tips: endTips(win, st), sit: sitrep(win, ig), firstWin };
   if (win) startVictory(data);
-  else { SND.lose(); buzz(120); setTimeout(() => showEnd(data), 900); }
+  else { SND.lose(); buzz(120); VO.say('lose', null, true, 500); setTimeout(() => showEnd(data), 900); }
 }
 function startVictory(data, cb) {   // vuelta de honor: zoom al activo mejor defendido + celebración, luego la pantalla de resultados
   let best = null;
   for (const a of G.assets) if (a.hp > 0 && (!best || a.hp > best.hp || (a.hp === best.hp && a.type === 'capital'))) best = a;
   G.hl = best; G.victory = { t: 0, shown: false, cb: cb || (() => showEnd(data)) };
-  banner(tr('end.win') + '<small>' + tr('vic.sub', { n: G.lv.name }) + '</small>');
+  VO.say('win', null, true, 500); banner(tr('end.win') + '<small>' + tr('vic.sub', { n: G.lv.name }) + '</small>');
   SND.fanfare(); buzz(60); FXS.pulse = 1;
 }
 function victoryTick(dt) {
@@ -1977,13 +2077,13 @@ function showEnd(d) {
   const achH = d.ach.length ? '<div class="unls pre" id="ac">' + d.ach.map((a, i) => '<div class="unl gold" style="animation-delay:' + (i * .18) + 's"><span class="nb">🏆 ' + tr('end.achNew') + '</span><b>' + tr('ach.' + a.id + '.name') + '</b><small>' + tr('ach.' + a.id + '.d') + ' · +' + a.pm + ' ' + tr('unit.pm') + '</small></div>').join('') + '</div>' : '';
   const sitH = '<div class="sitrep pre" id="sit"><b>' + tr('end.sitrep') + '</b> ' + d.sit + '</div>';
   const tipsH = d.tips.length ? '<div class="tips pre" id="tp"><b>' + tr('end.tips') + '</b><ul>' + d.tips.map(x => '<li>' + x + '</li>').join('') + '</ul></div>' : '';
-  const btns = '<div class="endbtns pre" id="eb">' + (win && G.mode === 'camp' && G.n < CAMP_N() ? '<button class="big go" data-a="next">' + tr('end.next') + '</button>' : '') + '<button class="big" data-a="upg">' + tr('end.upg', { cp: progress().cp, pm: tr('unit.pm') }) + '</button><button class="big" data-a="retry">' + tr('end.retry') + '</button><button class="big" data-a="menu">' + tr('end.menu') + '</button></div>';
+  const btns = '<div class="endbtns pre" id="eb">' + (!win && RP.buf.length >= 8 ? '<button class="big" data-a="replay">' + tr('rp.btn') + '</button>' : '') + (win && G.mode === 'camp' && G.n < CAMP_N() ? '<button class="big go" data-a="next">' + tr('end.next') + '</button>' : '') + '<button class="big" data-a="upg">' + tr('end.upg', { cp: progress().cp, pm: tr('unit.pm') }) + '</button><button class="big" data-a="retry">' + tr('end.retry') + '</button><button class="big" data-a="menu">' + tr('end.menu') + '</button></div>';
   const o = showOverlay('<h2 class="stamp ' + (win ? 'win' : 'lose') + ' pre" id="stamp">' + (win ? tr('end.win') : tr('end.lose')) + '</h2>' + (win ? starsH : '') + '<div class="tags" id="tg"></div>' + kv + medH + sitH + unlH + achH + tipsH + btns);
   $('#tg', o).innerHTML = tags.join('');
   const q = a => $('[data-a=' + a + ']', o);
   if (q('next')) q('next').onclick = () => showBrief(G.n + 1);
   q('upg').onclick = () => showUpgrades(() => showLevels());
-  q('retry').onclick = () => newGame(G.n, G.cfg); q('menu').onclick = showLevels;
+  q('retry').onclick = () => newGame(G.n, G.cfg); q('menu').onclick = showLevels; if (q('replay')) q('replay').onclick = () => startReplay(() => showEnd(d));
   // secuencia de revelado (toca la pantalla para saltarla)
   const show = id => { const e = $('#' + id, o); if (e) { e.classList.remove('pre'); e.classList.add('rv'); } };
   let raf = 0;
@@ -2015,9 +2115,11 @@ let last = 0;
 function frame(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now;
   if (FXS.hold > 0) FXS.hold = Math.max(0, FXS.hold - dt);
+  if (FXS.slow > 0) FXS.slow = Math.max(0, FXS.slow - dt);
+  if (G && G.rp) { rpAdvance(dt); draw(); requestAnimationFrame(frame); return; }
   FXS.pulse = Math.max(0, FXS.pulse - dt * .7);
   if (G && !G.over && G.speed > 0 && !(FXS.hold > 0)) {
-    let rem = dt * G.speed;
+    let rem = dt * G.speed * (FXS.slow > 0 ? .3 : 1);
     while (rem > 0 && !G.over) { const h = Math.min(rem, 1 / 30); step(h); rem -= h; }
   } else if (G && !G.over && FXS.hold > 0) { /* hitstop */ } else if (G && G.over) { const fd = G.victory ? dt * .5 : dt; if (G.victory) victoryTick(dt); for (const e of G.fx) e.t += fd; G.fx = G.fx.filter(e => e.t < e.dur); G.floats.forEach(f => f.t += fd); G.floats = G.floats.filter(f => f.t < 1.1); }
   FXS.shake = Math.max(0, FXS.shake - dt * 1.8); FXS.flash = Math.max(0, FXS.flash - dt * .9); FXS.lt = Math.max(0, FXS.lt - dt * 2.5);
@@ -2026,7 +2128,13 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 let slow = 0, achTick = 0;
+function musicLevel() {
+  if (!G || G.demo || G.over || G.phase !== 'ops' || G.speed <= 0 || !$('#overlay').classList.contains('hidden')) return 0;
+  const n = G.threats.filter(t => t.alive).length;
+  return n === 0 ? 1 : (n >= 8 || integrity() < 50) ? 3 : 2;
+}
 setInterval(() => {
+  SND.setMusic(musicLevel());
   if (!G) return;
   if (!G.over && !G.demo && ++achTick % 4 === 0) checkAch();
   refreshTop(); refreshDock(); tutTick();
@@ -2046,7 +2154,8 @@ function applyLang() {
   }
 }
 function init() {
-  I18N.init(); I18N.onChange(applyLang); applyLang();
+  I18N.init(); I18N.onChange(applyLang); applyLang(); applyA11y();
+  $('#rpskip').onclick = () => endReplay();
   new ResizeObserver(resize).observe($('#mapwrap'));
   addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 200));
   initPointer();
@@ -2058,6 +2167,8 @@ function init() {
   $('#btn-restock').addEventListener('click', restockAll);
   $('#btn-start').addEventListener('click', () => startOps(1));
   
+  ['pointerdown', 'touchend', 'keydown'].forEach(ev => document.addEventListener(ev, () => SND.init(), { passive: true }));
+  document.addEventListener('visibilitychange', () => { if (SND.ac) { try { document.hidden ? SND.ac.suspend() : SND.ac.resume(); } catch (e) { /* sin audio */ } if (document.hidden && window.speechSynthesis) speechSynthesis.cancel(); } });
   document.addEventListener('visibilitychange', () => { if (document.hidden && G && !G.over && !G.demo && G.speed > 0) { resumeSpeed = G.speed; setSpeed(0); log(tr('log.autoPause'), 'warn'); } });
   const rot = document.createElement('div'); rot.id = 'rotate'; rot.className = 'hidden'; rot.innerHTML = '<span></span><button>✕</button>';
   $('#mapwrap').appendChild(rot); $('button', rot).onclick = () => { rot.dataset.off = 1; rot.classList.add('hidden'); };
@@ -2069,6 +2180,6 @@ function init() {
   requestAnimationFrame(t => { last = t; frame(t); });
   const m = /[?&]level=(\d+)/.exec(location.search); if (m) { $('#overlay').classList.add('hidden'); newGame(+m[1]); }
 }
-window.__C2 = { SPECIALS, dailyConfig, endlessConfig, buildModeLevel, showModes, showModeBrief, endMode, endlessWave, theaterOf, CAMP_N, THEATERS, DIFF, WEATHER, WX, emRange, runEvent, spawnWave, MEDALS, ACH, COS, checkAch, effLife, medalsFor, endLevel, showEnd, showLevels, showAch, showCosmetics, progress, I18N, tr, applyLang, SET, restockAll, showPause, showSettings, tutTick, TUT, get G() { return G; }, get MAP() { return MAP; }, newGame, step, setSpeed, startOps, SAM, AIR, THREAT, makeLevel, placeUnit, launchMission, missionStation, firstReady, bestReady, inPoly, onLand, toggleEmit, emitters, isEmitting, airbases, validPlace, resize, view, UI, select, buildDock, refreshDock };
+window.__C2 = { RP, VO, SND, startReplay, endReplay, applyA11y, musicLevel, SPECIALS, dailyConfig, endlessConfig, buildModeLevel, showModes, showModeBrief, endMode, endlessWave, theaterOf, CAMP_N, THEATERS, DIFF, WEATHER, WX, emRange, runEvent, spawnWave, MEDALS, ACH, COS, checkAch, effLife, medalsFor, endLevel, showEnd, showLevels, showAch, showCosmetics, progress, I18N, tr, applyLang, SET, restockAll, showPause, showSettings, tutTick, TUT, get G() { return G; }, get MAP() { return MAP; }, newGame, step, setSpeed, startOps, SAM, AIR, THREAT, makeLevel, placeUnit, launchMission, missionStation, firstReady, bestReady, inPoly, onLand, toggleEmit, emitters, isEmitting, airbases, validPlace, resize, view, UI, select, buildDock, refreshDock };
 init();
 })();

@@ -71,3 +71,10 @@ La fuente va incrustada en base64 en `style.css` (funciona desde `file://` y en 
 - **Reto diario**: nivel fijado por la fecha (`dailyConfig`, semilla FNV). La *composición* del nivel (teatro, clima, regla, oleadas, rampas) es idéntica para todos; los dados del combate no están sincronizados. Racha diaria (`p.daily`). `?date=YYYY-MM-DD` para pruebas.
 - **Misiones especiales** (`SPECIALS`): Solo aire, Austeridad, Tormenta perfecta, Enjambre, Lluvia de misiles (`lv.rule`).
 - Marcadores: solo en el dispositivo; la clasificación online queda para el endpoint opcional de la Fase D.
+
+## Audio, repetición y accesibilidad (Fase C)
+- **Música** procedural (WebAudio, Am–F–C–G) con 4 niveles de intensidad según la situación (`musicLevel`): pad → bajo → arpegio+charles → bombo. Bus separado del SFX; `AudioContext.resume()` en el primer gesto (necesario en iOS) y suspensión al pasar a segundo plano.
+- **Voces del mando**: `speechSynthesis` del sistema (`VO.say`), una frase por evento (oleada, balísticos, ARM, impacto, interferencia, órdenes…), limitada por tiempo. Depende de las voces instaladas en el dispositivo.
+- **Repetición**: instantáneas a 10 Hz de los últimos 14 s (`RP`), reproducibles tras una derrota. **Cámara lenta** (×0,3) tras un impacto grave (`FXS.slow`).
+- **Accesibilidad**: modo daltónico (paleta naranja/celeste/amarillo + CSS vars), tamaño de texto A/A+/A++ (CSS `zoom`), pausa automática al abrir un panel.
+- **Idiomas**: es, en, fr, de, pt (`lang/*.js`; `tools` de generación en el repo de trabajo). Los nombres de país del mapa solo están localizados en es/en.
