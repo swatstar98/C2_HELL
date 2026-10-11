@@ -7,6 +7,18 @@ Idiomas: es, en, fr, de, pt. Vertical fijo.
 - **GitHub Pages**: activa *Settings → Pages → Source: GitHub Actions* y lanza el workflow **Web / PWA**. Abre la URL en el móvil y usa *Añadir a pantalla de inicio* (Android: Chrome; iOS: Safari → Compartir). Funciona sin conexión tras la primera visita (service worker).
 - **Red local**: `node tools/serve.js` y abre `http://IP-DEL-PC:8080` en el móvil. (El service worker y el portapapeles solo funcionan en `localhost` o HTTPS.)
 
+## APK en un comando (Windows / macOS / Linux)
+
+Requisitos: **Node 22+**, **JDK 21** y el **Android SDK** (lo instala Android Studio; define `ANDROID_HOME`, en Windows suele ser `%LOCALAPPDATA%\Android\Sdk`).
+
+```
+npm ci
+npm run apk        # → dist/C2HELL-debug.apk
+```
+`tools/make_apk.js` comprueba versiones y SDK con mensajes claros, genera `android/` si no existe (vertical, vibración, iconos), sincroniza la web y ejecuta Gradle. El APK sale **firmado con la clave de depuración**, instalable directamente (copia el archivo al móvil y permite «orígenes desconocidos», o `adb install -r dist/C2HELL-debug.apk`). Sale con **todo desbloqueado** (tienda desactivada) para poder probar.
+`npm run aab` genera el **AAB de Play Store** con la tienda activada (hace falta tu keystore: ver más abajo).
+Alternativa sin instalar nada: sube el repo a GitHub y lanza el workflow *Android* (Actions → Run workflow); el APK queda como artefacto.
+
 ## 2. Android (APK / AAB)
 Requisitos: Node 22+, JDK 21, Android Studio reciente (SDK 36; Capacitor 8 apunta a targetSdk 36, minSdk 24).
 ```bash
@@ -79,7 +91,7 @@ server/server.js                                                        ← serv
 | `nobilling` | `store.enabled:true` pero sin pasarela | No se puede comprar (falla cerrado, nada se regala) |
 
 **Para publicar con tienda:**
-1. Crea en Play Console y App Store Connect estos productos **únicos / no consumibles**: `c2hell_full`, `c2hell_pack_baltico`, `c2hell_pack_marrojo`, `c2hell_pack_taiwan`, `c2hell_pack_balcanes` (el id de pack es `c2hell_pack_` + el `id` del teatro en `maps2.js`).
+1. Crea en Play Console y App Store Connect estos productos **únicos / no consumibles**: `c2hell_full`, `c2hell_camp_korea` (campaña histórica de Corea; sus 4 primeras misiones son gratis), `c2hell_pack_baltico`, `c2hell_pack_marrojo`, `c2hell_pack_taiwan`, `c2hell_pack_balcanes` (el id de pack es `c2hell_pack_` + el `id` del teatro en `maps2.js`).
 2. Genera con la tienda activada: `npm run sync:store` (o `npm run android:aab:store`). El workflow `android.yml` ya lo hace para el AAB firmado.
 3. iOS: en Xcode añade la capability **In-App Purchase** al target App.
 4. Prueba con cuentas de prueba de licencia (Play) y Sandbox (Apple) **antes** de publicar.

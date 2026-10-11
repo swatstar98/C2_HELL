@@ -4,6 +4,16 @@
   const T = (es, en) => ({ es, en });
   const H = window.C2_HIST = window.C2_HIST || {};
   const K = H.korea = { id: 'korea', years: '1950–1953', map: 'korea', missions: [], units: {}, gloss: [] };
+  K.free = 4;   // las 4 primeras misiones (capítulo I) son gratis; el resto requiere la compra de la campaña
+  // Mejoras propias de la campaña (puntos de campaña ganados con estrellas). id = clave del motor.
+  K.upg = [
+    { id: 'budget', cost: 20, max: 4, name: T('Puente aéreo logístico', 'Logistic airlift'), desc: T('+10 % de créditos iniciales por rango. Los C-54 y C-119 mantienen el flujo de material.', '+10% starting credits per rank. C-54s and C-119s keep supplies flowing.') },
+    { id: 'pk', cost: 30, max: 4, name: T('Espoleta de proximidad VT', 'VT proximity fuze'), desc: T('+5 % de Pk en baterías y aviones por rango. La espoleta VT multiplicó la eficacia antiaérea.', '+5% Pk for batteries and aircraft per rank. The VT fuze multiplied AA effectiveness.') },
+    { id: 'reload', cost: 25, max: 4, name: T('Instrucción de dotaciones', 'Gun-crew training'), desc: T('−6 % de recarga por rango. Dotaciones más curtidas disparan más rápido.', '−6% reload time per rank. Seasoned crews fire faster.') },
+    { id: 'radar', cost: 25, max: 4, name: T('Radares de alerta temprana', 'Early-warning radars'), desc: T('+8 % de alcance de detección por rango (radares AN/CPS y de control de tiro).', '+8% detection range per rank (AN/CPS and fire-control radars).') },
+    { id: 'fleet', cost: 40, max: 3, name: T('Escuadrón de refuerzo', 'Reinforcement squadron'), desc: T('+1 caza inicial por rango, enviado desde Japón o EE. UU.', '+1 starting fighter per rank, sent from Japan or the U.S.') },
+    { id: 'armor', cost: 35, max: 4, name: T('Reparación rápida de pistas', 'Rapid runway repair'), desc: T('−7 % de daño por impacto por rango. Los ingenieros tapan los cráteres en horas.', '−7% impact damage per rank. Engineers fill craters within hours.') }
+  ];
   K.name = T('Guerra de Corea', 'Korean War');
   K.sub = T('Mando de defensa aérea de la ONU · 24 misiones', 'UN air-defense command · 24 missions');
   K.intro = T('Corea, 1950. Eres el controlador de defensa aérea del Mando de la ONU. En tres años pasarás de un cielo dominado por aviones de hélice a la primera guerra de reactores. Cada misión dura unos 5 minutos y recrea una situación real; al terminar aprenderás qué ocurrió de verdad. Las oleadas son representativas, no un parte de guerra.',

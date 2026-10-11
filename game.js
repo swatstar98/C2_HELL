@@ -230,10 +230,10 @@ function buzz(ms) {   // en la app nativa se usa el plugin Haptics de Capacitor 
 
 function newGame(n, cfg) {
   cfg = cfg || null;
-  if (cfg && cfg.mode === 'tut') { /* el tutorial es gratis y siempre accesible */ } else if (cfg ? !Store.modes() : !Store.theater(theaterOf(n))) return showStore(showMenu);
+  if (cfg && cfg.mode === 'tut') { /* el tutorial es gratis y siempre accesible */ } else if (cfg && cfg.mode === 'hist') { if (histPaid(HIST[cfg.camp], cfg.m)) return showStore(() => showCamp(cfg.camp)); } else if (cfg ? !Store.modes() : !Store.theater(theaterOf(n))) return showStore(showMenu);
   const lv = cfg ? buildModeLevel(cfg) : makeLevel(n); n = lv.n; coachHide();
   applyEra(cfg && cfg.mode === 'hist' ? HIST[cfg.camp].era : null); retextStatic();
-  const up = cfg && cfg.mode === 'hist' ? {} : (progress().up || {});   // las campañas históricas no usan las mejoras permanentes de la campaña moderna
+  const up = cfg && cfg.mode === 'hist' ? Object.assign({}, histGet(cfg.camp).h.up) : (progress().up || {});   // cada campaña histórica tiene sus propias mejoras (save.hist[id].up)
   loadTheater(lv.tobj || lv.theater, computeH()); resize();
   G = { up, n, lv, mode: cfg ? cfg.mode : 'camp', cfg, hist: cfg && cfg.mode === 'hist' ? { camp: cfg.camp, m: cfg.m } : null, noteIdx: 0, t: 0, speed: 0, phase: 'prep', over: false, endTimer: 0, credits: Math.round(lv.credits * (1 + .1 * (up.budget || 0))), id: 1, waveIdx: 0,
         assets: [], units: [], sites: [], threats: [], pending: [], missiles: [], fx: [], air: [], sel: null, buyBase: null,
@@ -1827,17 +1827,18 @@ const Store = {
     return window.C2_BILLING ? 'live' : this.cfg().sim ? 'sim' : 'nobilling';
   },
   on() { return this.mode() !== 'off'; },
-  ent() { const e = saveGet().iap || {}; return { full: !!e.full, packs: e.packs || {} }; },
+  ent() { const e = saveGet().iap || {}; return { full: !!e.full, packs: e.packs || {}, camps: e.camps || {} }; },
+  camp(id) { return !this.on() || !!this.ent().camps[id] || /[?&]unlock/.test(location.search); },   // las campañas históricas se venden aparte (no entran en «Juego completo»)
   full() { return !this.on() || this.ent().full; },
   modes() { return this.full() || /[?&]unlock/.test(location.search); },
   theater(k) { return k < BASE_T || this.full() || !!this.ent().packs[THEATERS[k] && THEATERS[k].id] || /[?&]unlock/.test(location.search); },
   price(id) {
     let p; try { p = window.C2_BILLING && window.C2_BILLING.price && window.C2_BILLING.price(id); } catch (e) { /* sin precio nativo */ }
-    return p || (this.cfg().prices || {})[id] || (id === FULL_ID ? '2,99 €' : '0,99 €');
+    return p || (this.cfg().prices || {})[id] || (id === FULL_ID ? '2,99 €' : id.indexOf('c2hell_camp_') === 0 ? '2,99 €' : '0,99 €');
   },
   grant(id) {
-    const s = saveGet(), e = s.iap = s.iap || { full: 0, packs: {} }; e.packs = e.packs || {};
-    if (id === FULL_ID) e.full = 1; else if (id.indexOf('c2hell_pack_') === 0) e.packs[id.slice(12)] = 1;
+    const s = saveGet(), e = s.iap = s.iap || { full: 0, packs: {} }; e.packs = e.packs || {}; e.camps = e.camps || {};
+    if (id === FULL_ID) e.full = 1; else if (id.indexOf('c2hell_pack_') === 0) e.packs[id.slice(12)] = 1; else if (id.indexOf('c2hell_camp_') === 0) e.camps[id.slice(12)] = 1;
     savePut(s);
   },
   buy(id) {
@@ -2127,6 +2128,7 @@ function showStore(back) {
   let h = '<h2>' + tr('st.title') + '</h2><p>' + tr('st.intro') + '</p>' + (m === 'sim' ? '<p class="sub" style="color:var(--amber)">' + tr('st.sim') + '</p>' : '') +
     row(FULL_ID, tr('st.full.n'), tr('st.full.d'), Store.full());
   for (let k = BASE_T; k < THEATERS.length; k++) h += row(packId(k), tr('th.' + THEATERS[k].id + '.name'), tr('st.pack.d', { t: tr('th.' + THEATERS[k].id + '.sub') }), Store.full() || !!ent.packs[THEATERS[k].id]);
+  for (const cid in HIST) h += row('c2hell_camp_' + cid, '🎖 ' + ht(HIST[cid].name) + ' · ' + HIST[cid].years, tr('st.camp.d', { n: HIST[cid].missions.length, f: HIST[cid].free }), Store.camp(cid));
   h += '<p class="sub" id="st-msg"></p><button class="big" data-a="restore">' + tr('st.restore') + '</button><button class="big" data-a="back">' + tr('back') + '</button>';
   const o = showOverlay(h), msg = (t, bad) => { const e = $('#st-msg', o); e.textContent = t; e.style.color = bad ? 'var(--red)' : 'var(--green)'; };
   $$('[data-id]', o).forEach(b => b.onclick = () => {
@@ -2141,12 +2143,14 @@ function showStore(back) {
  * Cada campaña (window.C2_HIST[id]) es independiente: su mapa, su orden de batalla de época (C.era sustituye a SAM/AIR/THREAT mientras dura la misión),
  * 24 misiones de ~5 min con briefing y debriefing educativos, un archivo de fichas y su propio progreso (save.hist[id]). */
 const HIST = window.C2_HIST || {}, HMAPS = window.C2_HMAPS || {};
-const MONTHS = { es: ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'], en: ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'] };
+const MONTHS = { es: ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'], en: ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'],
+  fr: ['JANV.', 'FÉVR.', 'MARS', 'AVR.', 'MAI', 'JUIN', 'JUIL.', 'AOÛT', 'SEPT.', 'OCT.', 'NOV.', 'DÉC.'], de: ['JAN', 'FEB', 'MÄR', 'APR', 'MAI', 'JUN', 'JUL', 'AUG', 'SEP', 'OKT', 'NOV', 'DEZ'], pt: ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'] };
 const ht = o => o == null ? '' : typeof o === 'string' ? o : (o[I18N.lang] || o.en || o.es || '');
 const hdate = d => (d[2] ? d[2] + ' ' : '') + (d[1] ? (MONTHS[I18N.lang] || MONTHS.en)[d[1] - 1] + ' ' : '') + d[0];
 const histOpen = () => /[?&]unlock/.test(location.search);
-function histGet(id) { const p = progress(); p.hist = p.hist || {}; const h = p.hist[id] = p.hist[id] || {}; h.stars = h.stars || {}; h.best = h.best || {}; return { p, h }; }
-const histUnlocked = (C, m, h) => histOpen() || m === 1 || (h.stars[m - 1] || 0) > 0;
+function histGet(id) { const p = progress(); p.hist = p.hist || {}; const h = p.hist[id] = p.hist[id] || {}; h.stars = h.stars || {}; h.best = h.best || {}; h.up = h.up || {}; h.cp = h.cp || 0; return { p, h }; }
+const histPaid = (C, m) => m > C.free && !Store.camp(C.id);   // las primeras C.free misiones son gratis; el resto es de pago
+const histUnlocked = (C, m, h) => !histPaid(C, m) && (histOpen() || m === 1 || (h.stars[m - 1] || 0) > 0);
 function histLevel(cfg) {
   const C = HIST[cfg.camp], ms = C.missions[cfg.m - 1], base = HMAPS[C.map], DF = DIFF[SET.diff] || DIFF.normal;
   const [latC, lonC, span] = ms.view, kx = 1000 / span, ky = kx / Math.cos(latC * Math.PI / 180);
@@ -2201,17 +2205,18 @@ function showCamp(id) {
   const C = HIST[id], { h } = histGet(id), done = Object.values(h.stars).filter(v => v > 0).length, st = Object.values(h.stars).reduce((a, b) => a + b, 0);
   let nextM = 0; for (let m = 1; m <= C.missions.length; m++) if (!(h.stars[m] > 0)) { nextM = m; break; }
   let html = '<h2>' + ht(C.name) + ' · ' + C.years + '</h2><div class="hbox">' + ht(C.intro) + '</div><div class="kv"><span>' + tr('h.missions') + '</span><span class="amber">' + done + '/' + C.missions.length + '</span><span>' + tr('lv.stars') + '</span><span>' + st + '/' + C.missions.length * 3 + '</span></div>' +
-    '<button class="big" data-a="arch">📖 ' + tr('h.arch') + '</button>';
+    '<button class="big" data-a="arch">📖 ' + tr('h.arch') + '</button><button class="big" data-a="hupg">🛠 ' + tr('h.upg') + ' · ' + h.cp + ' ' + tr('unit.pm') + '</button>' + (Store.camp(id) ? '' : '<button class="big go" data-a="buy">🔒 ' + tr('h.buy', { p: Store.price('c2hell_camp_' + id), f: C.free }) + '</button>');
   C.chapters.forEach((ch, ci) => {
     html += '<div class="chap"><b>' + ht(ch.n) + '</b><small>' + ht(ch.d) + '</small></div>';
     C.missions.filter(ms => ms.ch === ci).forEach(ms => {
-      const lock = !histUnlocked(C, ms.n, h), s = h.stars[ms.n] || 0;
-      html += '<button class="big mrow2' + (lock ? ' lk' : '') + (ms.n === nextM ? ' go' : '') + '" data-m="' + ms.n + '"><span class="mn">' + ms.n + '</span><span class="mt"><b>' + ht(ms.name) + '</b><small>' + hdate(ms.date) + ' · ' + ht(ms.place) + '</small></span><span class="ms">' + (lock ? '🔒' : '★'.repeat(s) + '☆'.repeat(3 - s)) + '</span></button>';
+      const lock = !histUnlocked(C, ms.n, h), s = h.stars[ms.n] || 0, paid = histPaid(C, ms.n);
+      html += '<button class="big mrow2' + (lock ? ' lk' : '') + (ms.n === nextM ? ' go' : '') + '" data-m="' + ms.n + '"><span class="mn">' + ms.n + '</span><span class="mt"><b>' + ht(ms.name) + '</b><small>' + hdate(ms.date) + ' · ' + ht(ms.place) + '</small></span><span class="ms">' + (paid ? '🔒 ' + Store.price('c2hell_camp_' + id) : lock ? '🔒' : '★'.repeat(s) + '☆'.repeat(3 - s)) + '</span></button>';
     });
   });
   html += '<button class="big" data-a="back">' + tr('back') + '</button>';
   const o = showOverlay(html);
-  $$('[data-m]', o).forEach(b => b.onclick = () => { const m = +b.dataset.m; if (!histUnlocked(C, m, h)) return toast(tr('h.locked'), 'warn'); showHistBrief(id, m); });
+  $$('[data-m]', o).forEach(b => b.onclick = () => { const m = +b.dataset.m; if (histPaid(C, m)) return showStore(() => showCamp(id)); if (!histUnlocked(C, m, h)) return toast(tr('h.locked'), 'warn'); showHistBrief(id, m); });
+  $('[data-a=hupg]', o).onclick = () => showUpgrades(() => showCamp(id), id); if ($('[data-a=buy]', o)) $('[data-a=buy]', o).onclick = () => showStore(() => showCamp(id));
   $('[data-a=arch]', o).onclick = () => showArchive(id); $('[data-a=back]', o).onclick = showHist;
   const nb = $('.mrow2.go', o); if (nb && nb.scrollIntoView) setTimeout(() => nb.scrollIntoView({ block: 'center' }), 30);
 }
@@ -2235,18 +2240,19 @@ function showHistBrief(id, m) {
 function endHist(win) {
   const s = G.stats, { camp: id, m } = G.hist, C = HIST[id], ig = Math.round(integrity()), st = win ? (ig >= 90 ? 3 : ig >= 65 ? 2 : 1) : 0, first = win && !(histGet(id).h.stars[m] > 0);
   const { p, h } = histGet(id);
+  const prevSt = h.stars[m] || 0, gain = win ? (prevSt ? 5 * Math.max(0, st - prevSt) : 10 + 10 * st) : 0; h.cp += gain;
   if (win) { h.stars[m] = Math.max(h.stars[m] || 0, st); const b = h.best[m]; if (!b || ig > b.ig) h.best[m] = { ig, time: Math.round(G.t) }; }
   savePut(p); Net.event('hist_end', { camp: id, m, win, st, ig, t: Math.round(G.t) });
-  const d = { win, st, ig, first, id, m };
+  const d = { win, st, ig, first, id, m, gain };
   if (win) startVictory(d, () => showHistEnd(d)); else { SND.lose(); buzz(120); VO.say('lose', null, true, 500); setTimeout(() => showHistEnd(d), 900); }
 }
 function showHistEnd(d) {
   const s = G.stats, C = HIST[d.id], ms = C.missions[d.m - 1], U = ms.unit && C.units[ms.unit], last = d.m === C.missions.length;
   const starsH = d.win ? '<div class="stars">' + [0, 1, 2].map(i => '<span class="sx' + (i < d.st ? ' fill on' : '') + '">★</span>').join('') + '</div>' : '';
-  const card = d.win && U ? '<div class="unls"><div class="unl gold"><span class="nb">📖 ' + tr('h.card') + '</span><b>' + ht(U.name) + '</b><small>' + (U.sp && U.sp !== '—' ? U.sp + '<br>' : '') + ht(U.d) + '</small></div></div>' : '';
+  const card = d.win && U ? '<div class="unls"><div class="unl gold"><span class="nb">📖 ' + tr('h.card') + '</span><b>' + ht(U.name) + '</b><small>' + (U.sp && U.sp !== '—' ? ht(U.sp) + '<br>' : '') + ht(U.d) + '</small></div></div>' : '';
   const o = showOverlay('<h2 class="stamp ' + (d.win ? 'win' : 'lose') + '">' + (d.win ? tr('end.win') : tr('end.lose')) + '</h2>' + starsH +
     '<div class="kv"><span>' + tr('end.integ') + '</span><span>' + d.ig + '%</span><span>' + tr('end.kills') + '</span><span>' + s.kills + '</span><span>' + tr('end.leaked') + '</span><span>' + s.leaked + '</span><span>' + tr('end.airLost') + '</span><span>' + s.airLost + '</span><span>' + tr('pz.time') + '</span><span>' + mmss(G.t) + '</span></div>' +
-    '<div class="hbox"><b>' + tr('h.real') + ' · ' + hdate(ms.date) + '</b><br>' + ht(ms.out) + '</div><div class="hbox fact"><b>' + tr('h.fact') + '</b><br>' + ht(ms.fact) + '</div>' + card +
+    (d.gain ? '<div class="hbox cpg"><b>+' + d.gain + ' ' + tr('h.cp') + '</b></div>' : '') + '<div class="hbox"><b>' + tr('h.real') + ' · ' + hdate(ms.date) + '</b><br>' + ht(ms.out) + '</div><div class="hbox fact"><b>' + tr('h.fact') + '</b><br>' + ht(ms.fact) + '</div>' + card +
     '<div class="endbtns">' + (d.win ? '<button class="big go" data-a="next">' + (last ? tr('h.epi') : tr('h.next')) + '</button>' : '') + '<button class="big' + (d.win ? '' : ' go') + '" data-a="retry">' + tr('end.retry') + '</button><button class="big" data-a="camp">' + tr('h.back') + '</button></div>');
   const q = a => $('[data-a=' + a + ']', o);
   if (q('next')) q('next').onclick = () => last ? showHistEpi(d.id) : showHistBrief(d.id, d.m + 1);
@@ -2266,7 +2272,7 @@ function showArchive(id) {
       : '<div class="arc lk"><b>' + hdate(ms.date) + '</b> · ???</div>';
   });
   html += '<div class="sub">' + tr('h.cards') + '</div>';
-  const seen = new Set(); C.missions.forEach(ms => { if (ms.unit && !seen.has(ms.unit)) { seen.add(ms.unit); const U = C.units[ms.unit]; html += got(ms.n) && U ? '<details class="arc"><summary><b>' + ht(U.name) + '</b></summary><p>' + (U.sp && U.sp !== '—' ? '<small>' + U.sp + '</small><br>' : '') + ht(U.d) + '</p></details>' : '<div class="arc lk">' + tr('h.cardLocked') + '</div>'; } });
+  const seen = new Set(); C.missions.forEach(ms => { if (ms.unit && !seen.has(ms.unit)) { seen.add(ms.unit); const U = C.units[ms.unit]; html += got(ms.n) && U ? '<details class="arc"><summary><b>' + ht(U.name) + '</b></summary><p>' + (U.sp && U.sp !== '—' ? '<small>' + ht(U.sp) + '</small><br>' : '') + ht(U.d) + '</p></details>' : '<div class="arc lk">' + tr('h.cardLocked') + '</div>'; } });
   html += '<div class="sub">' + tr('h.gloss') + '</div>' + C.gloss.map(g => '<details class="arc"><summary>' + ht(g[0]) + '</summary><p>' + ht(g[1]) + '</p></details>').join('') + '<button class="big" data-a="back">' + tr('back') + '</button>';
   const o = showOverlay(html); $('[data-a=back]', o).onclick = () => showCamp(id);
 }
@@ -2356,19 +2362,20 @@ function showCosmetics(back) {
   $$('.sw', o).forEach(b => b.onclick = () => { SET.cos = SET.cos || {}; SET.cos[b.dataset.k] = b.dataset.id; saveSet(); refreshCos(); showCosmetics(back); });
   $('[data-a=back]', o).onclick = back || showMenu;
 }
-function showUpgrades(back) {
-  const p = progress();
-  let h = '<h2>' + tr('upg.title') + '</h2><div class="kv"><span>' + tr('lv.cp') + '</span><span class="amber">' + p.cp + ' ' + tr('unit.pm') + '</span></div>';
-  for (const u of UPG) {
-    const lv = p.up[u.id] || 0, cost = u.cost * (lv + 1), maxed = lv >= u.max;
+function showUpgrades(back, camp) {
+  const C = camp && HIST[camp], H = camp ? histGet(camp).h : progress(), ups = C ? C.upg.map(u => Object.assign({}, u, { name: ht(u.name), desc: ht(u.desc) })) : UPG;
+  const store = () => camp ? histGet(camp) : { p: progress(), h: progress() };
+  let h = '<h2>' + (C ? tr('h.upg') : tr('upg.title')) + '</h2>' + (C ? '<p class="sub">' + ht(C.name) + '</p>' : '') + '<div class="kv"><span>' + tr(C ? 'h.cp' : 'lv.cp') + '</span><span class="amber">' + H.cp + ' ' + tr('unit.pm') + '</span></div>';
+  for (const u of ups) {
+    const lv = H.up[u.id] || 0, cost = u.cost * (lv + 1), maxed = lv >= u.max;
     h += '<div class="up"><div><b>' + u.name + '</b> <span class="amber">' + '■'.repeat(lv) + '<span style="opacity:.25">' + '■'.repeat(u.max - lv) + '</span></span><div class="sub">' + u.desc + '</div></div>' +
-      '<button class="pbtn" style="width:auto;min-width:82px;margin:0" data-u="' + u.id + '"' + (maxed || p.cp < cost ? ' disabled' : '') + '>' + (maxed ? tr('upg.max') : cost + ' ' + tr('unit.pm')) + '</button></div>';
+      '<button class="pbtn" style="width:auto;min-width:82px;margin:0" data-u="' + u.id + '"' + (maxed || H.cp < cost ? ' disabled' : '') + '>' + (maxed ? tr('upg.max') : cost + ' ' + tr('unit.pm')) + '</button></div>';
   }
   const o = showOverlay(h + '<button class="big" data-a="back">' + tr('back') + '</button>');
   $$('[data-u]', o).forEach(b => b.onclick = () => {
-    const q = progress(), u = UPG.find(x => x.id === b.dataset.u), lv = q.up[u.id] || 0, cost = u.cost * (lv + 1);
+    const { p, h: q } = store(), u = ups.find(x => x.id === b.dataset.u), lv = q.up[u.id] || 0, cost = u.cost * (lv + 1);
     if (lv >= u.max || q.cp < cost) return;
-    q.cp -= cost; q.up[u.id] = lv + 1; savePut(q); showUpgrades(back);
+    q.cp -= cost; q.up[u.id] = lv + 1; savePut(p); showUpgrades(back, camp);
   });
   $('[data-a=back]', o).onclick = back || showMenu;
 }
@@ -2671,6 +2678,6 @@ function init() {
   requestAnimationFrame(t => { last = t; frame(t); });
   const m = /[?&]level=(\d+)/.exec(location.search); if (m) { $('#overlay').classList.add('hidden'); newGame(+m[1]); }
 }
-window.__C2 = { HIST, histLevel, showHist, showCamp, showHistBrief, showArchive, endHist, applyEra, startTutorial, TSTEPS, coachNext, coachEnd, Store, showStore, Net, exportSave, importSave, showSaveTools, showBoard, RP, VO, SND, startReplay, endReplay, applyA11y, musicLevel, SPECIALS, dailyConfig, endlessConfig, buildModeLevel, showModes, showModeBrief, endMode, endlessWave, theaterOf, CAMP_N, THEATERS, DIFF, WEATHER, WX, emRange, runEvent, spawnWave, MEDALS, ACH, COS, checkAch, effLife, medalsFor, endLevel, showEnd, showLevels, showAch, showCosmetics, progress, I18N, tr, applyLang, SET, restockAll, showPause, showSettings, tutTick, TUT, get G() { return G; }, get MAP() { return MAP; }, newGame, step, setSpeed, startOps, SAM, AIR, THREAT, makeLevel, placeUnit, launchMission, missionStation, firstReady, bestReady, inPoly, onLand, toggleEmit, emitters, isEmitting, airbases, validPlace, resize, view, UI, select, buildDock, refreshDock };
+window.__C2 = { showUpgrades, histGet, savePut, HIST, histLevel, showHist, showCamp, showHistBrief, showArchive, endHist, applyEra, startTutorial, TSTEPS, coachNext, coachEnd, Store, showStore, Net, exportSave, importSave, showSaveTools, showBoard, RP, VO, SND, startReplay, endReplay, applyA11y, musicLevel, SPECIALS, dailyConfig, endlessConfig, buildModeLevel, showModes, showModeBrief, endMode, endlessWave, theaterOf, CAMP_N, THEATERS, DIFF, WEATHER, WX, emRange, runEvent, spawnWave, MEDALS, ACH, COS, checkAch, effLife, medalsFor, endLevel, showEnd, showLevels, showAch, showCosmetics, progress, I18N, tr, applyLang, SET, restockAll, showPause, showSettings, tutTick, TUT, get G() { return G; }, get MAP() { return MAP; }, newGame, step, setSpeed, startOps, SAM, AIR, THREAT, makeLevel, placeUnit, launchMission, missionStation, firstReady, bestReady, inPoly, onLand, toggleEmit, emitters, isEmitting, airbases, validPlace, resize, view, UI, select, buildDock, refreshDock };
 init();
 })();

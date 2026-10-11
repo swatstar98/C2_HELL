@@ -6,5 +6,5 @@
  *              prices = precio de reserva; en la app nativa se usa el precio localizado que devuelve la tienda. */
 window.C2_CONFIG = {
   endpoint: '', version: '1.0.0',
-  store: { enabled: false, sim: false, prices: { c2hell_full: '2,99 €', c2hell_pack_baltico: '0,99 €', c2hell_pack_marrojo: '0,99 €', c2hell_pack_taiwan: '0,99 €', c2hell_pack_balcanes: '0,99 €' } }
+  store: { enabled: false, sim: false, prices: { c2hell_full: '2,99 €', c2hell_pack_baltico: '0,99 €', c2hell_pack_marrojo: '0,99 €', c2hell_pack_taiwan: '0,99 €', c2hell_pack_balcanes: '0,99 €', c2hell_camp_korea: '2,99 €' } }
 };

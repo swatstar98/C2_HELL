@@ -103,4 +103,7 @@ La fuente va incrustada en base64 en `style.css` (funciona desde `file://` y en 
 - Misión: `{n,ch,date,place,name,ctx,obj,out,fact,notes,view,wx,as,sites[[nombre,lat,lon,sanct?]],front,w{n,pts,mix,ramp},cr,inc,fleet,def,unit}`. Las unidades se desbloquean por nº de misión (`era.unlock`). Sin mejoras permanentes. Notas «RADIO» a t=[s].
 - Progreso: `save.hist[camp] = {stars:{m:n}, best:{m:{ig,time}}}`; misiones secuenciales (`?unlock` lo salta). Estrellas por integridad ≥90/≥65.
 - Para añadir un conflicto: nuevo mapa en `C2_HMAPS`, nuevos archivos `hist/`, registrar en `index.html`, `sw.js` y `tools/build_www.js`, y una entrada en el hub (`HIST`).
-- Textos históricos solo en es/en; fr/de/pt usan la UI en inglés (fallback). Contenido escrito sin revisión de historiador.
+- **Traducciones**: los datos llevan `{es,en}`; fr/de/pt se añaden en `hist/<id>_<lang>.js` con `C2_HTR(id, lang, {'ruta|del|texto': '...'})` (rutas como `missions|0|ctx`, `era|str|hint.sam`, `units|f86|d`). Se cargan después de los datos. Lo que no está traducido cae a inglés (p. ej. designaciones de aviones). Las especificaciones de fichas (`sp`) se derivan de un pequeño diccionario en `korea_units.js`.
+- **Pago**: producto `c2hell_camp_<id>` (no incluido en «Juego completo»); `C.free` misiones gratis (Corea: 4). Lógica en `Store.camp()` y `histPaid()`.
+- **Mejoras propias**: `C.upg` (ids del motor, nombres/descripciones propios); puntos de campaña `save.hist[id].cp` (primera victoria 10+10×★; repetir +5 por ★ extra); niveles en `save.hist[id].up`; `G.up` de una misión histórica sale de ahí (no de las mejoras de la campaña moderna).
+- Contenido escrito sin revisión de historiador.
