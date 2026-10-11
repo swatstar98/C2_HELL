@@ -1,0 +1,11 @@
+{
+  "appId": "com.swatstar.c2hell",
+  "appName": "C2 HELL",
+  "webDir": "www",
+  "backgroundColor": "#05080c",
+  "android": { "allowMixedContent": false, "backgroundColor": "#05080c" },
+  "ios": { "contentInset": "never", "backgroundColor": "#05080c", "limitsNavigationsToAppBoundDomains": false },
+  "plugins": {
+    "StatusBar": { "style": "DARK", "backgroundColor": "#06090d", "overlaysWebView": true }
+  }
+}

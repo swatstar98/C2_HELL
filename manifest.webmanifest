@@ -1,0 +1,19 @@
+{
+  "name": "C2 HELL — Air Defense Command",
+  "short_name": "C2 HELL",
+  "description": "Lite-sim de mando y control de defensa aérea con simbología NTDS. Tower defense militar para móvil y PC.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "portrait",
+  "background_color": "#05080c",
+  "theme_color": "#06090d",
+  "lang": "es",
+  "categories": ["games", "strategy"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

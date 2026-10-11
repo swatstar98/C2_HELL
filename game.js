@@ -191,7 +191,7 @@ const bg = document.createElement('canvas');
 
 function saveGet() { try { return JSON.parse(localStorage.getItem('c2hell.save') || '{}'); } catch (e) { return {}; } }
 function savePut(o) { try { localStorage.setItem('c2hell.save', JSON.stringify(o)); } catch (e) { /* sin almacenamiento */ } }
-const SET = Object.assign({ snd: true, vib: true, rings: true, scale: 1, tutDone: false, cos: {}, diff: 'normal', music: true, voice: true, cb: false, ui: 1, ap: false }, saveGet().set || {});
+const SET = Object.assign({ snd: true, vib: true, rings: true, scale: 1, tutDone: false, cos: {}, diff: 'normal', music: true, voice: true, cb: false, ui: 1, ap: false, online: false, nick: '' }, saveGet().set || {});
 function saveSet() { const o = saveGet(); o.set = SET; savePut(o); }
 const CB = { red: '#ff8a1f', green: '#56d4ff', amber: '#f0e442' }, CN = { red: C.red, green: C.green, amber: C.amber };   // modo daltónico: naranja / celeste / amarillo en lugar de rojo / verde / ámbar
 function applyA11y() {
@@ -201,7 +201,14 @@ function applyA11y() {
 }
 const FXS = { shake: 0, flash: 0, hold: 0, pulse: 0, lt: 0, slow: 0 };
 function floatTxt(x, y, txt, col) { if (!G) return; if (G.floats.length > 40) G.floats.shift(); G.floats.push({ x, y, txt, col, t: 0 }); }
-function buzz(ms) { if (SET.vib && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) { /* sin vibración */ } } }
+function buzz(ms) {   // en la app nativa se usa el plugin Haptics de Capacitor (iOS no tiene navigator.vibrate)
+  if (!SET.vib) return;
+  try {
+    const H = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Haptics;
+    if (H && H.impact) { Promise.resolve(H.impact({ style: ms >= 100 ? 'HEAVY' : ms >= 50 ? 'MEDIUM' : 'LIGHT' })).catch(() => { /* sin háptica */ }); return; }
+    if (navigator.vibrate) navigator.vibrate(ms);
+  } catch (e) { /* sin vibración */ }
+}
 
 function newGame(n, cfg) {
   cfg = cfg || null;
@@ -273,6 +280,15 @@ const SND = {
       } catch (e) { this.ac = null; return; }
     }
     if (this.ac.state === 'suspended') { try { this.ac.resume(); } catch (e) { /* iOS: se reintenta con el siguiente gesto */ } }
+    const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (!isIOS) { /* el truco del interruptor de silencio solo hace falta en iOS */ }
+    else if (!this.unmute) {
+      try {
+        const a = document.createElement('audio'); a.loop = true; a.setAttribute('playsinline', ''); a.volume = .01;
+        a.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';   // WAV de silencio
+        this.unmute = a; a.play().catch(() => { /* se reintentará con otro gesto */ });
+      } catch (e) { /* sin audio HTML5 */ }
+    } else if (this.unmute.paused) this.unmute.play().catch(() => { /* idem */ });
     this.musicStart();
   },
   gate(key) { const n = performance.now(); if (n - (this.last[key] || 0) < 70) return false; this.last[key] = n; return true; },
@@ -310,6 +326,7 @@ const SND = {
     const m = this.mus, ac = this.ac; if (!m || !ac) return;
     if (!this.on || !this.musicOn || ac.state !== 'running') { m.next = ac.currentTime + .2; return; }
     const bpm = [72, 84, 96, 112][m.lvl], d = 60 / bpm / 4;
+    if (m.next < ac.currentTime - .4) m.next = ac.currentTime + .1;   // tras un bloqueo del hilo no se recuperan los pasos perdidos (evita una avalancha de osciladores)
     while (m.next < ac.currentTime + .3) { this.musicStep(m.step++, m.next, d, m.lvl); m.next += d; }
   },
   mtone(f, t, len, type, vol, atk, lp) {
@@ -1762,6 +1779,8 @@ function endMode(win) {
   }
   pm = Math.round(pm * (DIFF[G.lv.diff] || DIFF.normal).pm * (G.lv.pmMul || 1));
   p.cp += pm; savePut(p);
+  Net.event('mode_end', { m, win, score, ig, waves: G.waveIdx, diff: G.lv.diff });
+  Net.score(m === 'endless' ? 'endless' : m === 'daily' ? 'daily' : 'special', m === 'endless' ? '' : m === 'daily' ? G.cfg.date : G.cfg.id, score, { waves: G.waveIdx, ig, win });
   const ach = checkAch(true), data = { win, m, score, pm, ig, rank, first, newBest, ach, waves: G.waveIdx };
   if (G.tut) endTut();
   if (win) startVictory(data, () => showModeEnd(data)); else { SND.lose(); buzz(120); VO.say('lose', null, true, 500); setTimeout(() => showModeEnd(data), 900); }
@@ -1803,9 +1822,58 @@ function showModes() {
     card('endless', 'go', tr('md.endless'), tr('md.endless.d'), e.top.length ? tr('md.best') + ': ' + e.top[0].s + ' · ' + tr('md.waveN', { n: e.top[0].w }) : tr('md.none')) +
     card('daily', '', tr('md.daily') + ' · ' + today, tr('md.daily.d'), (dd && dd.win ? '✔ ' + tr('md.done') + ' · ' + dd.score + ' pts' : tr('md.todo')) + ' · ' + tr('md.streak', { n: liveStreak })) +
     '<div class="sub">' + tr('md.special') + '</div>' + SPECIALS.map(x => card('sp:' + x.id, '', (sp[x.id] ? '✔ ' : '◇ ') + tr('sp.' + x.id + '.name'), tr('sp.' + x.id + '.d'), sp[x.id] ? tr('md.best') + ': ' + sp[x.id].score + ' pts' : '+' + x.pm + ' ' + tr('unit.pm'))).join('');
+  if (Net.active()) h += '<div class="row3"><button class="big" data-b="endless">🌐 ' + tr('md.endless') + '</button><button class="big" data-b="daily">🌐 ' + tr('md.daily') + '</button></div>';
   const o = showOverlay(h + '<button class="big" data-a="back">' + tr('back.menu') + '</button>');
+  $$('[data-b]', o).forEach(b => b.onclick = () => showBoard(b.dataset.b, b.dataset.b === 'daily' ? today : '', showModes));
   $$('[data-m]', o).forEach(b => b.onclick = () => { const m = b.dataset.m; showModeBrief(m === 'endless' ? endlessConfig() : m === 'daily' ? dc : { mode: 'special', id: m.slice(3) }); });
   $('[data-a=back]', o).onclick = showMenu;
+}
+/* ============================ RED OPCIONAL: marcadores, telemetría anónima y guardado en la nube ============================ */
+// Todo esto está APAGADO por defecto: hace falta (1) un endpoint en config.js y (2) que el jugador active «Funciones online».
+const Net = {
+  base: () => String((window.C2_CONFIG || {}).endpoint || '').replace(/\/+$/, ''),
+  avail() { return !!this.base(); },
+  active() { return this.avail() && !!SET.online; },
+  cid() { const s = saveGet(); if (!s.cid) { s.cid = Math.random().toString(36).slice(2, 10) + Date.now().toString(36); savePut(s); } return s.cid; },
+  req(method, path, body) {
+    return fetch(this.base() + path, { method, headers: body ? { 'Content-Type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined, keepalive: method === 'POST' })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('http ' + r.status)));
+  },
+  event(name, d) { if (!this.active()) return; this.req('POST', '/event', { id: this.cid(), ev: name, v: (window.C2_CONFIG || {}).version, lang: I18N.lang, d }).catch(() => { /* sin red: se ignora */ }); },
+  score(mode, key, score, extra) { if (!this.active()) return; this.req('POST', '/score', { id: this.cid(), nick: SET.nick || '', mode, key, score, extra }).catch(() => { /* sin red */ }); },
+  top(mode, key) { return this.req('GET', '/scores?mode=' + encodeURIComponent(mode) + '&key=' + encodeURIComponent(key || '') + '&limit=20'); }
+};
+const SAVE_KEYS = ['stars', 'up', 'cp', 'ach', 'life', 'medals', 'rec', 'endless', 'daily', 'special'];
+function exportSave() { const s = saveGet(), o = {}; for (const k of SAVE_KEYS) if (s[k] !== undefined) o[k] = s[k]; return 'C2H1.' + btoa(unescape(encodeURIComponent(JSON.stringify(o)))); }
+function importSave(txt) {
+  try {
+    txt = String(txt || '').trim(); if (txt.slice(0, 5) !== 'C2H1.') return false;
+    const o = JSON.parse(decodeURIComponent(escape(atob(txt.slice(5))))); if (!o || typeof o !== 'object' || Array.isArray(o)) return false;
+    const s = saveGet(); for (const k of SAVE_KEYS) if (o[k] !== undefined) s[k] = o[k]; savePut(s); return true;
+  } catch (e) { return false; }
+}
+function showSaveTools(back) {
+  const code = exportSave(), net = Net.avail();
+  const o = showOverlay('<h2>' + tr('sv.title') + '</h2><p>' + tr('sv.intro') + '</p><div class="sub">' + tr('sv.export') + '</div><textarea id="sv-out" readonly rows="3">' + code + '</textarea>' +
+    '<div class="row3"><button class="big" data-a="copy">' + tr('sv.copy') + '</button><button class="big" data-a="share">' + tr('sv.share') + '</button><button class="big" data-a="file">' + tr('sv.file') + '</button></div>' +
+    '<div class="sub">' + tr('sv.import') + '</div><textarea id="sv-in" rows="3" placeholder="C2H1.…"></textarea><button class="big" data-a="imp">' + tr('sv.importBtn') + '</button>' +
+    (net ? '<div class="sub">' + tr('sv.cloud') + '</div><div class="row3"><button class="big" data-a="up">' + tr('sv.up') + '</button><input id="sv-code" placeholder="' + tr('sv.code') + '" maxlength="12"><button class="big" data-a="down">' + tr('sv.down') + '</button></div>' : '') +
+    '<p class="sub" id="sv-msg"></p><button class="big" data-a="back">' + tr('back') + '</button>');
+  const msg = (t, bad) => { const m = $('#sv-msg', o); m.textContent = t; m.style.color = bad ? 'var(--red)' : 'var(--green)'; };
+  $('[data-a=copy]', o).onclick = () => { const ta = $('#sv-out', o); ta.select(); let ok = false; try { if (navigator.clipboard) { navigator.clipboard.writeText(code); ok = true; } else ok = document.execCommand('copy'); } catch (e) { /* se queda seleccionado */ } msg(ok ? tr('sv.copied') : tr('sv.copyManual'), !ok); };
+  $('[data-a=share]', o).onclick = () => { if (navigator.share) navigator.share({ title: 'C2 HELL', text: code }).catch(() => { /* cancelado */ }); else msg(tr('sv.noShare'), true); };
+  $('[data-a=file]', o).onclick = () => { try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([code], { type: 'text/plain' })); a.download = 'c2hell-save.txt'; document.body.appendChild(a); a.click(); a.remove(); msg(tr('sv.saved')); } catch (e) { msg(tr('sv.copyManual'), true); } };
+  confirmBtn($('[data-a=imp]', o), () => { if (importSave($('#sv-in', o).value)) { checkAch(true); msg(tr('sv.ok')); } else msg(tr('sv.bad'), true); }, tr('sv.confirm'));
+  if (net) {
+    $('[data-a=up]', o).onclick = () => Net.req('POST', '/save', { code: ($('#sv-code', o).value || '').trim() || undefined, data: code }).then(r => { $('#sv-code', o).value = r.code; msg(tr('sv.upOk', { c: r.code })); }).catch(() => msg(tr('sv.netErr'), true));
+    $('[data-a=down]', o).onclick = () => { const c = ($('#sv-code', o).value || '').trim(); if (!c) return msg(tr('sv.code'), true); Net.req('GET', '/save/' + encodeURIComponent(c)).then(r => { if (importSave(r.data)) { checkAch(true); msg(tr('sv.ok')); } else msg(tr('sv.bad'), true); }).catch(() => msg(tr('sv.netErr'), true)); };
+  }
+  $('[data-a=back]', o).onclick = back || showMenu;
+}
+function showBoard(mode, key, back) {
+  const o = showOverlay('<h2>' + tr('board.title') + '</h2><p class="sub">' + (mode === 'daily' ? tr('md.daily') + ' · ' + key : mode === 'endless' ? tr('md.endless') : tr('sp.' + key + '.name')) + '</p><div id="bd">…</div><button class="big" data-a="back">' + tr('back') + '</button>');
+  $('[data-a=back]', o).onclick = back || showModes;
+  Net.top(mode, key).then(r => { const l = (r && r.top) || []; $('#bd', o).innerHTML = l.length ? '<div class="kv">' + l.map((x, i) => '<span>#' + (i + 1) + ' ' + String(x.nick || '—').replace(/[<>&]/g, '') + '</span><span class="amber">' + x.score + '</span>').join('') + '</div>' : '<p>' + tr('board.empty') + '</p>'; }).catch(() => { $('#bd', o).textContent = tr('sv.netErr'); });
 }
 function showMenu() {
   if (G) { G.speed = 0; }
@@ -1984,13 +2052,14 @@ function showSettings(back) {
   const o = showOverlay('<h2>' + tr('set.title') + '</h2><div class="opt"><span>' + tr('set.diff') + '</span><div class="seg">' + diffSeg + '</div></div><div class="opt"><span>' + tr('set.lang') + '</span><div class="seg">' + langSeg + '</div></div>' + onoff('snd', tr('set.snd')) + onoff('vib', tr('set.vib')) + onoff('rings', tr('set.rings')) +
     '<div class="opt"><span>' + tr('set.scale') + '</span><div class="seg">' + seg + '</div></div>' + onoff('music', tr('set.music')) + onoff('voice', tr('set.voice')) + onoff('cb', tr('set.cb')) + onoff('ap', tr('set.ap')) +
     '<div class="opt"><span>' + tr('set.ui') + '</span><div class="seg">' + [[1, 'A'], [1.15, 'A+'], [1.3, 'A++']].map(([v, l]) => '<button class="pbtn' + (SET.ui === v ? ' sel' : '') + '" data-ui="' + v + '">' + l + '</button>').join('') + '</div></div>' +
-    '<button class="big" data-a="fs">' + tr('set.fs') + '</button><button class="big" data-a="tut">' + tr('set.tut') + '</button><button class="big" data-a="reset">' + tr('set.reset') + '</button><button class="big" data-a="back">' + tr('back') + '</button>');
+    (Net.avail() ? onoff('online', tr('set.online')) + '<div class="opt"><span>' + tr('set.nick') + '</span><input id="nick" maxlength="12" value="' + (SET.nick || '').replace(/[<>&"]/g, '') + '"></div>' : '') + '<button class="big" data-a="sav">' + tr('set.save') + '</button><button class="big" data-a="fs">' + tr('set.fs') + '</button><button class="big" data-a="tut">' + tr('set.tut') + '</button><button class="big" data-a="reset">' + tr('set.reset') + '</button><button class="big" data-a="back">' + tr('back') + '</button>');
   $$('[data-d]', o).forEach(b => b.onclick = () => { SET.diff = b.dataset.d; saveSet(); showSettings(back); });
   $$('[data-lang]', o).forEach(b => b.onclick = () => { I18N.setLang(b.dataset.lang); showSettings(back); });
   $$('[data-k]', o).forEach(b => b.onclick = () => { const k = b.dataset.k; SET[k] = !SET[k]; if (k === 'snd') { SND.on = SET.snd; SND.init(); } if (k === 'voice' && !SET.voice && window.speechSynthesis) speechSynthesis.cancel(); applyA11y(); saveSet(); showSettings(back); });
   $$('[data-ui]', o).forEach(b => b.onclick = () => { SET.ui = +b.dataset.ui; applyA11y(); saveSet(); showSettings(back); });
   $$('[data-sc]', o).forEach(b => b.onclick = () => { SET.scale = +b.dataset.sc; saveSet(); resize(); showSettings(back); });
-  $('[data-a=fs]', o).onclick = toggleFS;
+  $('[data-a=fs]', o).onclick = toggleFS; $('[data-a=sav]', o).onclick = () => showSaveTools(() => showSettings(back));
+  { const nk = $('#nick', o); if (nk) nk.onchange = () => { SET.nick = nk.value.trim().slice(0, 12); saveSet(); }; }
   $('[data-a=tut]', o).onclick = () => { SET.tutDone = false; saveSet(); const t = $('[data-a=tut]', o); t.textContent = tr('set.tutDone'); };
   confirmBtn($('[data-a=reset]', o), () => { const keep = { set: SET }; savePut(keep); SET.tutDone = false; saveSet(); showSettings(back); }, tr('set.resetConfirm'));
   $('[data-a=back]', o).onclick = back || showMenu;
@@ -2041,6 +2110,7 @@ function endLevel(win) {
   add('orders', s.ordersOk);
   if (win) { add('won', 1); if (lv.diff === 'veteran') add('winVet', 1); if (lv.diff === 'expert') add('winExp', 1); if (s.leaked === 0) add('flawless', 1); if (econ) add('econ', 1); if (ig < 40) add('narrow', 1); p.stars[n] = Math.max(p.stars[n] || 0, st); }
   p.cp += pm; savePut(p);
+  Net.event('level_end', { n, win, st, ig, kills: s.kills, t: Math.round(G.t), diff: lv.diff });
   const ach = checkAch(true), unl = win ? unlockCards(n) : [];
   if (G.tut) endTut();
   const data = { win, st, ig, ratio, econ, pm, medals, recs, unl, ach, tips: endTips(win, st), sit: sitrep(win, ig), firstWin };
@@ -2111,6 +2181,23 @@ function showEnd(d) {
 }
 
 /* ============================ ARRANQUE ============================ */
+/* integración con la app nativa (Capacitor): barra de estado oculta y botón «atrás» de Android */
+function nativeInit() {
+  try {
+    const C = window.Capacitor; if (!C || !C.isNativePlatform || !C.isNativePlatform()) return;
+    document.documentElement.classList.add('native');
+    const P = C.Plugins || {};
+    if (P.StatusBar) { Promise.resolve(P.StatusBar.hide()).catch(() => { /* sin barra de estado */ }); }
+    if (P.App && P.App.addListener) {
+      P.App.addListener('backButton', () => {
+        const ov = $('#overlay');
+        if (ov && !ov.classList.contains('hidden')) { const b = $('[data-a=back]', ov) || $('[data-a=res]', ov) || $('[data-a=menu]', ov); if (b) b.click(); else if (G && !G.over) ov.classList.add('hidden'); }
+        else if (G && !G.over && !G.demo) showPause(); else showMenu();
+      });
+      P.App.addListener('appStateChange', st => { if (st && st.isActive === false && G && !G.over && !G.demo && G.speed > 0) { resumeSpeed = G.speed; setSpeed(0); } });
+    }
+  } catch (e) { /* fuera de la app nativa */ }
+}
 let last = 0;
 function frame(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now;
@@ -2155,6 +2242,7 @@ function applyLang() {
 }
 function init() {
   I18N.init(); I18N.onChange(applyLang); applyLang(); applyA11y();
+  nativeInit();
   $('#rpskip').onclick = () => endReplay();
   new ResizeObserver(resize).observe($('#mapwrap'));
   addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 200));
@@ -2180,6 +2268,6 @@ function init() {
   requestAnimationFrame(t => { last = t; frame(t); });
   const m = /[?&]level=(\d+)/.exec(location.search); if (m) { $('#overlay').classList.add('hidden'); newGame(+m[1]); }
 }
-window.__C2 = { RP, VO, SND, startReplay, endReplay, applyA11y, musicLevel, SPECIALS, dailyConfig, endlessConfig, buildModeLevel, showModes, showModeBrief, endMode, endlessWave, theaterOf, CAMP_N, THEATERS, DIFF, WEATHER, WX, emRange, runEvent, spawnWave, MEDALS, ACH, COS, checkAch, effLife, medalsFor, endLevel, showEnd, showLevels, showAch, showCosmetics, progress, I18N, tr, applyLang, SET, restockAll, showPause, showSettings, tutTick, TUT, get G() { return G; }, get MAP() { return MAP; }, newGame, step, setSpeed, startOps, SAM, AIR, THREAT, makeLevel, placeUnit, launchMission, missionStation, firstReady, bestReady, inPoly, onLand, toggleEmit, emitters, isEmitting, airbases, validPlace, resize, view, UI, select, buildDock, refreshDock };
+window.__C2 = { Net, exportSave, importSave, showSaveTools, showBoard, RP, VO, SND, startReplay, endReplay, applyA11y, musicLevel, SPECIALS, dailyConfig, endlessConfig, buildModeLevel, showModes, showModeBrief, endMode, endlessWave, theaterOf, CAMP_N, THEATERS, DIFF, WEATHER, WX, emRange, runEvent, spawnWave, MEDALS, ACH, COS, checkAch, effLife, medalsFor, endLevel, showEnd, showLevels, showAch, showCosmetics, progress, I18N, tr, applyLang, SET, restockAll, showPause, showSettings, tutTick, TUT, get G() { return G; }, get MAP() { return MAP; }, newGame, step, setSpeed, startOps, SAM, AIR, THREAT, makeLevel, placeUnit, launchMission, missionStation, firstReady, bestReady, inPoly, onLand, toggleEmit, emitters, isEmitting, airbases, validPlace, resize, view, UI, select, buildDock, refreshDock };
 init();
 })();
