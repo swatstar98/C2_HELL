@@ -117,3 +117,5 @@ La fuente va incrustada en base64 en `style.css` (funciona desde `file://` y en 
 - **Parte de misión compartible**: `reportCard(d)` dibuja un PNG en canvas; `shareReport` usa Web Share con archivo y cae a descarga.
 - **Tienda**: `tools/store_shots.js` (capturas 1080×1920 ×5 idiomas), `tools/store_graphic.js` (feature graphic 1024×500), `store/listing_<lang>.md`. Playtests: `PLAYTEST.md`.
 - **Limitaciones conocidas**: sin fotos reales, sin trailer por campaña, balance verificado solo con bot, fr/de/pt sin revisión nativa, comportamiento de Web Share en Capacitor sin probar en dispositivo.
+
+- **Fase H (UI móvil)**: barra de mando inferior (#cmd, zona del pulgar) con INICIAR/velocidades, menú y sonido junto a la integridad, objetivos táctiles ≥44 px (--tap), tipografía escalada con --u según ancho, safe areas, esquinas achaflanadas y marcos tipo visor. Solo CSS/DOM del HUD; el canvas y los iconos del mapa no se tocan. Comparativa en store/ui/.

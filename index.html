@@ -18,24 +18,17 @@
 <div id="app">
   <header id="top">
     <div class="r1">
-      <button id="btn-menu" class="tbtn" data-i18n-aria="a.menu" aria-label="Menú">☰</button>
       <div class="stat"><span class="lbl" data-i18n="hud.level">NIVEL</span><b id="s-level">1</b></div>
       <div class="stat"><span class="lbl" data-i18n="hud.wave">OLEADA</span><b id="s-wave">0/0</b></div>
       <div class="stat"><span class="lbl" data-i18n="hud.next">PRÓX.</span><b id="s-next">—</b></div>
       <div class="stat"><span class="lbl">T+</span><b id="s-time">0:00</b></div>
       <div class="stat"><span class="lbl" data-i18n="hud.credits">CRÉDITOS</span><b id="s-cred" class="amber">0</b></div>
-      <button id="btn-snd" class="tbtn" data-i18n-aria="a.sound" aria-label="Sonido">♪</button>
     </div>
     <div class="r2">
+      <button id="btn-menu" class="tbtn" data-i18n-aria="a.menu" aria-label="Menú">☰</button>
       <div class="stat grow"><span class="lbl" data-i18n="hud.integrity">INTEGRIDAD</span>
         <div class="bar"><i id="s-integ"></i></div></div>
-      <div id="speeds" class="hidden">
-        <button class="tbtn spd" data-s="0" data-i18n-aria="a.pause" aria-label="Pausa">❚❚</button>
-        <button class="tbtn spd" data-s="1">1×</button>
-        <button class="tbtn spd" data-s="2">2×</button>
-        <button class="tbtn spd" data-s="4">4×</button>
-      </div>
-      <button id="btn-start" data-i18n="btn.start">▶ INICIAR OPERACIÓN</button>
+      <button id="btn-snd" class="tbtn" data-i18n-aria="a.sound" aria-label="Sonido">♪</button>
     </div>
   </header>
 
@@ -51,6 +44,16 @@
     <div id="goal" class="hidden"></div>
     <div id="toasts"></div>
   </main>
+
+  <div id="cmd">
+    <div id="speeds" class="hidden">
+      <button class="tbtn spd" data-s="0" data-i18n-aria="a.pause" aria-label="Pausa">❚❚</button>
+      <button class="tbtn spd" data-s="1">1×</button>
+      <button class="tbtn spd" data-s="2">2×</button>
+      <button class="tbtn spd" data-s="4">4×</button>
+    </div>
+    <button id="btn-start" data-i18n="btn.start">▶ INICIAR OPERACIÓN</button>
+  </div>
 
   <aside id="dock">
     <div id="tabs">

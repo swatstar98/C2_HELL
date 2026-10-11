@@ -304,3 +304,94 @@ body.s50 #goal{border-color:#c9a24a;color:#e6c777}
 .rib{display:flex;gap:10px;align-items:center;margin:8px 0;opacity:.45}.rib.on{opacity:1}
 .rib i{flex:0 0 74px;height:26px;border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,.25)}.rib span{display:flex;flex-direction:column;text-align:left}.rib b{font-size:13px}.rib small{font-size:11px;opacity:.75;line-height:1.3}
 .hbox.gold{border-left-color:#ffd84a}.hbox .dim{opacity:.7}
+
+/* ===== Fase H — rediseño móvil táctico (Pixel 9 / iPhone 15-18) =====
+   Zona del pulgar abajo (barra de mando + dock), objetivos ≥44 px, safe areas,
+   marcos con esquinas achaflanadas. No afecta al canvas ni a los iconos del mapa. */
+:root{--u:clamp(1,calc(100vw/390),1.14);--tap:48px;--cut:7px;--hair:rgba(79,224,232,.18)}
+html,body{font-size:calc(16px*var(--u))}
+#app{grid-template-rows:auto minmax(0,1fr) auto auto;grid-template-areas:"top" "map" "cmd" "dock";
+  padding:max(env(safe-area-inset-top),0px) env(safe-area-inset-right) 0 env(safe-area-inset-left)}
+/* esquinas achaflanadas reutilizables */
+.tbtn,.pbtn,.big,.lv,#btn-start,.tab,.tabx,.card,.chip,.hbox,.mrow2{clip-path:polygon(var(--cut) 0,100% 0,100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,0 100%,0 var(--cut))}
+/* HUD superior */
+#top{gap:6px;padding:6px 10px 7px;background:linear-gradient(#0c1520,#09111a);border-bottom:1px solid var(--line);position:relative}
+#top::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);opacity:.5}
+#top .r1{gap:6px}
+#top .tbtn{min-width:var(--tap);height:var(--tap);font-size:calc(19px*var(--u));padding:0}
+#top .stat{flex:1 1 0;min-width:0;padding:2px 0 0 7px;border-left:1px solid var(--hair)}
+.lbl{font-size:calc(11px*var(--u));letter-spacing:.08em;text-transform:uppercase}
+#top .r1 .stat b{font-size:calc(20px*var(--u));line-height:1.15}
+#top .r2{gap:8px}
+#top .r2 .stat.grow{border:0;padding:0;flex-direction:row;align-items:center;gap:10px}
+#top .r2 .lbl{flex:0 0 auto}
+.bar{height:12px;border-radius:0;flex:1;background:repeating-linear-gradient(90deg,#0a1219 0 9px,#0d1822 9px 10px)}
+.bar i{background:linear-gradient(90deg,var(--green),#6df0aa)}
+/* barra de mando (zona del pulgar) */
+#cmd{grid-area:cmd;display:flex;gap:8px;padding:8px 10px;background:#08101a;border-top:1px solid var(--line);position:relative}
+#cmd::before{content:"";position:absolute;left:0;top:-1px;width:38%;height:2px;background:var(--green)}
+#cmd:has(#speeds.hidden)::before{background:var(--amber);width:100%}
+#speeds{flex:1;display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:6px}
+#speeds .tbtn{min-width:0;height:var(--tap);font-size:calc(16px*var(--u));font-weight:700;letter-spacing:.04em}
+#speeds .tbtn.on{background:#103a55;border-color:var(--cyan);color:#fff;box-shadow:inset 0 -3px var(--cyan)}
+#btn-start{height:56px;margin:0;font-size:calc(17px*var(--u));letter-spacing:.14em;background:linear-gradient(#124a31,#0d3322);box-shadow:inset 0 0 0 1px var(--green),0 0 14px rgba(53,208,127,.22);animation:armed 2.2s ease-in-out infinite}
+@keyframes armed{50%{box-shadow:inset 0 0 0 1px var(--green),0 0 22px rgba(53,208,127,.45)}}
+/* dock */
+#dock{padding-bottom:max(env(safe-area-inset-bottom),6px);background:#0a1118}
+.tab,.tabx{height:var(--tap);font-size:calc(13.5px*var(--u));letter-spacing:.1em}
+.tab.on{box-shadow:inset 0 -3px var(--cyan);background:#12293c}
+#cards{height:clamp(116px,calc(14.5dvh),152px);gap:8px;padding:8px 10px;scroll-snap-type:x proximity;scroll-padding:10px}
+.card{width:calc(124px*var(--u));padding:8px 8px 6px;scroll-snap-align:start;background:linear-gradient(#132130,#0e1925)}
+.card .n{font-size:calc(15.5px*var(--u))}.card .c{font-size:calc(14px*var(--u))}.card .r{font-size:calc(12.5px*var(--u))}
+.card .buy{width:var(--tap);height:var(--tap);top:0;right:0;border-radius:0}
+.chip{width:calc(90px*var(--u))}
+/* paneles sobre el mapa con esquinas de visor */
+#panel,#hint{border-radius:0;border-color:var(--cyan);background:rgba(7,13,20,.94);bottom:8px;left:8px;right:8px}
+#panel::before,#hint::before{content:"";position:absolute;left:-1px;top:-1px;width:14px;height:14px;border-left:2px solid var(--amber);border-top:2px solid var(--amber)}
+#panel::after,#hint::after{content:"";position:absolute;right:-1px;bottom:-1px;width:14px;height:14px;border-right:2px solid var(--amber);border-bottom:2px solid var(--amber)}
+#panel,#hint{position:absolute}
+.pbtn{min-height:var(--tap);font-size:calc(15px*var(--u));border-radius:0}
+#hint .x{min-width:var(--tap);height:var(--tap)}
+#phase{top:8px;font-size:calc(12.5px*var(--u));border-radius:0;padding:3px 12px}
+#log{top:36px;font-size:calc(13.5px*var(--u))}
+/* pantallas: menú, campaña, briefing, debrief */
+.screen{background:radial-gradient(ellipse at 50% 0%,#12283a,#04080c 70%),repeating-linear-gradient(0deg,rgba(79,224,232,.03) 0 1px,transparent 1px 4px);align-items:safe center}
+.box{width:min(520px,100%);padding-bottom:6px}
+.title{font-size:clamp(38px,11vw,60px);letter-spacing:.14em}
+.tag{font-size:calc(13px*var(--u));margin:6px 0 26px;border-left:2px solid var(--red);padding-left:10px}
+.big{min-height:58px;font-size:calc(17.5px*var(--u));border-radius:0;background:linear-gradient(90deg,#122233,#0d1a27);border-color:#2a5468;margin:10px 0}
+.big:active{background:#173a52;border-color:var(--cyan)}
+.big.go{background:linear-gradient(90deg,#0f3a26,#0c2a1e);box-shadow:inset 3px 0 var(--green)}
+.hbox{border-radius:0}
+.box h2{font-size:calc(21px*var(--u))}
+.box p,.box li{font-size:calc(16px*var(--u))}
+.lv{min-height:72px;border-radius:0}
+.opt{padding:12px 0}
+.mrow2{min-height:var(--tap)}
+@media (max-height:700px){:root{--tap:44px}#btn-start{height:48px}#cards{height:108px}.big{min-height:50px;margin:6px 0}}
+@media (max-width:360px){#top .r1{gap:3px}#top .stat{padding-left:4px}}
+@media (prefers-reduced-motion:reduce){#btn-start{animation:none}}
+/* ajustes tras captura */
+#top .tbtn{min-width:44px;height:44px}
+#top .r1{gap:4px}
+#top .stat{padding-left:6px}
+.lbl{letter-spacing:.02em;font-size:calc(10.5px*var(--u));overflow:hidden;text-overflow:clip}
+#top .r1 .stat b{font-size:calc(19px*var(--u))}
+.tab,.tabx{height:44px}
+#cmd{padding:6px 10px}
+#speeds .tbtn{height:46px}
+#btn-start{height:52px}
+#cards{height:clamp(106px,12.5dvh,138px)}
+#top .r1{gap:0}
+#top .r1 .stat{padding-left:8px}
+.lbl{font-size:calc(11px*var(--u));letter-spacing:.04em}
+#top .r2{gap:6px}
+#top .r2 .stat.grow{flex:1}
+#log{max-width:60%}
+.lbl{letter-spacing:0;font-size:calc(10.5px*var(--u))}
+#top .r1 .stat{padding-left:6px}
+#log{max-height:34%;overflow:hidden;font-size:calc(12.5px*var(--u));justify-content:flex-end}
+@media (max-width:380px){.lbl{font-size:9.5px}#log{max-height:28%}}
+#coach-card.top{top:calc(112px + env(safe-area-inset-top))}
+#coach-card.btm{bottom:calc(236px + env(safe-area-inset-bottom))}
+#rpbar{top:calc(78px + env(safe-area-inset-top))}
