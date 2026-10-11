@@ -277,3 +277,14 @@ textarea{resize:none;margin:4px 0}
 #coach-card .cwait{font:700 13px var(--mono);letter-spacing:.1em;color:var(--green)}
 #coach-card .big{margin:0}
 .tutcard{display:grid;gap:2px;text-align:left}.tutcard b{font:700 15.5px var(--mono);letter-spacing:.06em}.tutcard small{color:#b6cddb;font:14px/1.3 system-ui,sans-serif;font-weight:400;letter-spacing:0}
+/* campañas históricas */
+.hbox{background:rgba(20,40,56,.55);border-left:3px solid #3ea6ff;padding:9px 11px;margin:8px 0;font-size:14px;line-height:1.45;text-align:left;border-radius:3px}
+.hbox b{color:#cfe6f7;font-size:12.5px;letter-spacing:.06em}.hbox.obj{border-left-color:#ffb020}.hbox.fact{border-left-color:#35d07f}.hbox.chapb{border-left-color:#b69cff}.hbox small{color:#7390a3}
+.hdate{color:#ffb020;font-size:13px;letter-spacing:.08em;margin:-4px 0 6px}
+#hmini{width:100%;height:auto;border:1px solid rgba(120,160,190,.35);border-radius:4px;margin:4px 0 8px;display:block}
+.chap{margin:14px 0 4px;text-align:left;border-bottom:1px solid rgba(120,160,190,.3);padding-bottom:3px}.chap b{display:block;font-size:14px;color:#cfe6f7}.chap small{color:#7390a3;font-size:12px}
+.mrow2{display:flex!important;align-items:center;gap:10px;text-align:left;padding:8px 10px!important;margin:4px 0!important}
+.mrow2 .mn{font-size:18px;font-weight:700;color:#ffb020;min-width:26px;text-align:center}.mrow2 .mt{flex:1;display:flex;flex-direction:column}.mrow2 .mt b{font-size:14px}.mrow2 .mt small{font-size:12px;color:#7390a3}.mrow2 .ms{color:#ffd84a;font-size:14px;letter-spacing:1px}
+.mrow2.lk{opacity:.5}
+.arc{text-align:left;border:1px solid rgba(120,160,190,.25);border-radius:4px;margin:5px 0;padding:6px 9px;font-size:13.5px;line-height:1.45}.arc summary{cursor:pointer}.arc p{margin:6px 0 2px}.arc .fact{color:#8be3ae}.arc.lk{opacity:.45}
+#toasts .hist{border-left:3px solid #ffb020;background:rgba(40,28,6,.92);color:#ffe9c0;text-align:left;font-size:13px;max-width:92%}
