@@ -63,3 +63,38 @@ I18N.add('pt', {
   'st.camp.d': 'Campanha histórica de {n} missões com arquivo educativo e melhorias próprias. As {f} primeiras missões são grátis.',
   'st.full.d': 'Os 4 teatros extras (16 níveis), modo Sem fim, Desafio diário e Missões especiais. As campanhas históricas são vendidas separadamente.'
 });
+I18N.add('es', {
+  'goal.evac': 'EVACUACIÓN {p}%', 'goal.strike': 'AERÓDROMOS {a}/{b}', 'goal.ace': 'DERRIBOS AÉREOS {a}/{b}', 'goal.keep': '{n} {h}% (mín. {m}%)',
+  'goal.b.evac': 'Mantén «{a}» sano (por encima del 70 %) hasta completar la evacuación.', 'goal.b.strike': 'Destruye al menos {n} aeródromos hostiles con ataques aéreos.',
+  'goal.b.ace': 'Derriba al menos {n} aeronaves con tus propios aviones (no cuentan las baterías).', 'goal.b.keep': '«{a}» no puede bajar del {m} % de integridad.',
+  'goal.fail.evac': 'Evacuación incompleta: el objetivo no se mantuvo a salvo.', 'goal.fail.strike': 'No se destruyeron suficientes aeródromos.', 'goal.fail.ace': 'No se lograron los derribos aéreos requeridos.', 'goal.fail.keep': 'El objetivo protegido sufrió demasiado daño.'
+});
+I18N.add('en', {
+  'goal.evac': 'EVACUATION {p}%', 'goal.strike': 'AIRFIELDS {a}/{b}', 'goal.ace': 'AIR KILLS {a}/{b}', 'goal.keep': '{n} {h}% (min {m}%)',
+  'goal.b.evac': 'Keep "{a}" healthy (above 70%) until the evacuation completes.', 'goal.b.strike': 'Destroy at least {n} hostile airfields with air strikes.',
+  'goal.b.ace': 'Shoot down at least {n} aircraft with your own aircraft (batteries do not count).', 'goal.b.keep': '"{a}" must not drop below {m}% integrity.',
+  'goal.fail.evac': 'Evacuation incomplete: the objective was not kept safe.', 'goal.fail.strike': 'Not enough airfields were destroyed.', 'goal.fail.ace': 'The required air kills were not achieved.', 'goal.fail.keep': 'The protected objective took too much damage.'
+});
+I18N.add('fr', {
+  'goal.evac': 'ÉVACUATION {p} %', 'goal.strike': 'AÉRODROMES {a}/{b}', 'goal.ace': 'VICTOIRES AÉRIENNES {a}/{b}', 'goal.keep': '{n} {h} % (min. {m} %)',
+  'goal.b.evac': 'Gardez «{a}» en bon état (au-dessus de 70 %) jusqu\'à la fin de l\'évacuation.', 'goal.b.strike': 'Détruisez au moins {n} aérodromes hostiles par des frappes aériennes.',
+  'goal.b.ace': 'Abattez au moins {n} appareils avec vos propres avions (les batteries ne comptent pas).', 'goal.b.keep': '«{a}» ne doit pas descendre sous {m} % d\'intégrité.',
+  'goal.fail.evac': 'Évacuation incomplète : l\'objectif n\'a pas été protégé.', 'goal.fail.strike': 'Pas assez d\'aérodromes détruits.', 'goal.fail.ace': 'Les victoires aériennes requises n\'ont pas été atteintes.', 'goal.fail.keep': 'L\'objectif protégé a subi trop de dégâts.'
+});
+I18N.add('de', {
+  'goal.evac': 'EVAKUIERUNG {p} %', 'goal.strike': 'FLUGPLÄTZE {a}/{b}', 'goal.ace': 'LUFTSIEGE {a}/{b}', 'goal.keep': '{n} {h} % (min. {m} %)',
+  'goal.b.evac': 'Halte «{a}» intakt (über 70 %), bis die Evakuierung abgeschlossen ist.', 'goal.b.strike': 'Zerstöre mindestens {n} feindliche Flugplätze durch Luftangriffe.',
+  'goal.b.ace': 'Schieße mindestens {n} Flugzeuge mit deinen eigenen Maschinen ab (Batterien zählen nicht).', 'goal.b.keep': '«{a}» darf nicht unter {m} % Integrität fallen.',
+  'goal.fail.evac': 'Evakuierung unvollständig: Das Ziel wurde nicht sicher gehalten.', 'goal.fail.strike': 'Nicht genug Flugplätze zerstört.', 'goal.fail.ace': 'Die geforderten Luftsiege wurden nicht erreicht.', 'goal.fail.keep': 'Das geschützte Ziel nahm zu viel Schaden.'
+});
+I18N.add('pt', {
+  'goal.evac': 'EVACUAÇÃO {p}%', 'goal.strike': 'AERÓDROMOS {a}/{b}', 'goal.ace': 'ABATES AÉREOS {a}/{b}', 'goal.keep': '{n} {h}% (mín. {m}%)',
+  'goal.b.evac': 'Mantenha «{a}» em bom estado (acima de 70%) até concluir a evacuação.', 'goal.b.strike': 'Destrua pelo menos {n} aeródromos hostis com ataques aéreos.',
+  'goal.b.ace': 'Abata pelo menos {n} aeronaves com seus próprios aviões (as baterias não contam).', 'goal.b.keep': '«{a}» não pode cair abaixo de {m}% de integridade.',
+  'goal.fail.evac': 'Evacuação incompleta: o objetivo não foi mantido a salvo.', 'goal.fail.strike': 'Aeródromos insuficientes destruídos.', 'goal.fail.ace': 'Os abates aéreos exigidos não foram alcançados.', 'goal.fail.keep': 'O objetivo protegido sofreu dano demais.'
+});
+I18N.add('es', { 'h.top': 'MEJOR PILOTO', 'h.lost': 'Perdidos', 'h.aces': 'TUS ASES', 'h.ace': 'AS', 'h.ribbons': 'CONDECORACIONES', 'h.ribNew': 'NUEVA CONDECORACIÓN', 'h.share': 'COMPARTIR INFORME' });
+I18N.add('en', { 'h.top': 'TOP PILOT', 'h.lost': 'Lost', 'h.aces': 'YOUR ACES', 'h.ace': 'ACE', 'h.ribbons': 'DECORATIONS', 'h.ribNew': 'NEW DECORATION', 'h.share': 'SHARE REPORT' });
+I18N.add('fr', { 'h.top': 'MEILLEUR PILOTE', 'h.lost': 'Perdus', 'h.aces': 'VOS AS', 'h.ace': 'AS', 'h.ribbons': 'DÉCORATIONS', 'h.ribNew': 'NOUVELLE DÉCORATION', 'h.share': 'PARTAGER LE RAPPORT' });
+I18N.add('de', { 'h.top': 'BESTER PILOT', 'h.lost': 'Verloren', 'h.aces': 'DEINE ASSE', 'h.ace': 'ASS', 'h.ribbons': 'AUSZEICHNUNGEN', 'h.ribNew': 'NEUE AUSZEICHNUNG', 'h.share': 'BERICHT TEILEN' });
+I18N.add('pt', { 'h.top': 'MELHOR PILOTO', 'h.lost': 'Perdidos', 'h.aces': 'SEUS ASES', 'h.ace': 'ÁS', 'h.ribbons': 'CONDECORAÇÕES', 'h.ribNew': 'NOVA CONDECORAÇÃO', 'h.share': 'COMPARTILHAR RELATÓRIO' });

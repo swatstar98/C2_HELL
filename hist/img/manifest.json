@@ -1,0 +1,14 @@
+{
+  "korea": {
+    "f86": { "url": "", "credit": "USAF / NARA · dominio público", "note": "Candidato: NARA 542248 «F-86 Sabre jets of the 51st Fighter Wing» (Wikimedia Commons). Pega aquí la URL directa del archivo tras comprobar la licencia." },
+    "f80": { "url": "", "credit": "", "note": "Buscar foto USAF del F-80C en Corea (dominio público)." },
+    "f51": { "url": "", "credit": "", "note": "Buscar foto USAF del F-51D Mustang en Corea." },
+    "mig15": { "url": "", "credit": "", "note": "Foto del MiG-15 capturado/USAF (No Kum-sok, Kimpo 1953) si es de dominio público." },
+    "b29": { "url": "", "credit": "", "note": "B-29 sobre Corea, foto USAF." },
+    "f4u": { "url": "", "credit": "", "note": "F4U-4 Corsair, USMC/US Navy." },
+    "c119": { "url": "", "credit": "", "note": "C-119 lanzando suministros, USAF." },
+    "evac": { "url": "", "credit": "", "note": "Hungnam / Meredith Victory, US Navy/NARA." },
+    "cas": { "url": "", "credit": "", "note": "Chosin, USMC, dominio público." },
+    "dmz": { "url": "", "credit": "", "note": "Panmunjom, US Army/NARA." }
+  }
+}

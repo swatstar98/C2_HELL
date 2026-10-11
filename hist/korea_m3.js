@@ -22,7 +22,7 @@
     notes: [[45, T('Las tropas de la ONU entran en la capital vacía.', 'UN troops enter the empty capital.')], [160, T('Los ingenieros reabren la pista de Kimpo.', 'Engineers reopen the Kimpo runway.')]],
     view: [37.5, 126.9, 3.2], wx: 'clear', as: [['SEÚL', 'capital', 37.57, 126.98], ['KIMPO K-14', 'airbase', 37.56, 126.8], ['SUWON K-13', 'airbase', 37.24, 127.01], ['INCHEON', 'port', 37.46, 126.63], ['YONGDUNGPO', 'power', 37.52, 126.9]],
     sites: [['SARIWON', 38.51, 125.76], ['SUNAN', 39.2, 125.67], ['HAEJU', 38.04, 125.71]], front: [[38.1, 126.0], [38.0, 126.9], [38.1, 127.7]],
-    w: { n: 9, pts: 16, mix: [.45, .1, .15, .3], ramp: [.8, 1.3] }, cr: 660, inc: 7.6, fleet: { f16: 3, f15e: 2, ah64: 4, mq9: 1, e2: 1 }, def: .14, unit: 'aaa90' });
+    goal: { t: 'keep', a: 1, min: 60 }, w: { n: 9, pts: 16, mix: [.45, .1, .15, .3], ramp: [.8, 1.3] }, cr: 660, inc: 7.6, fleet: { f16: 3, f15e: 2, ah64: 4, mq9: 1, e2: 1 }, def: .14, unit: 'aaa90' });
   M.push({ n: 15, ch: 3, date: [1951, 4, 12], place: T('Cielos del Yalu', 'Skies of the Yalu'), name: T('El «jueves negro» de los B-29', 'The B-29 "Black Thursday"'),
     ctx: T('Unos 48 B-29, escoltados por cerca de 100 cazas F-80 y F-84, atacan los puentes de Sinuiju. Unos 30 MiG-15 los interceptan. Los bombarderos pesados, lentos y sin cazas capaces de igualar a los MiG, empiezan a descubrir que el cielo del Yalu ya no es seguro.',
       'About 48 B-29s, escorted by nearly 100 F-80 and F-84 fighters, attack the Sinuiju bridges. About 30 MiG-15s intercept them. The slow heavy bombers, with no escorts able to match the MiGs, begin to discover that the Yalu sky is no longer safe.'),
@@ -33,7 +33,7 @@
     notes: [[45, T('Contactos de MiG a gran altitud desde Antung.', 'High-altitude MiG contacts from Antung.')], [160, T('Un B-29 envía su mayday sobre el Yalu.', 'A B-29 sends its mayday over the Yalu.')]],
     view: [38.4, 126.3, 4.6], wx: 'clear', as: [['SEÚL', 'capital', 37.57, 126.98], ['KIMPO K-14', 'airbase', 37.56, 126.8], ['SUWON K-13', 'airbase', 37.24, 127.01], ['INCHEON', 'port', 37.46, 126.63]],
     sites: [['SINUIJU', 40.1, 124.4], ['ANTUNG', 40.0, 124.15, 1], ['NAMSI', 39.85, 125.55], ['SARIWON', 38.51, 125.76]], front: [[38.1, 125.9], [38.0, 126.9], [38.1, 127.7]],
-    w: { n: 9, pts: 17, mix: [.2, 0, .2, .6], ramp: [.8, 1.3] }, cr: 680, inc: 7.8, fleet: { f16: 3, f15e: 3, ah64: 3, mq9: 1, e2: 1 }, def: .15, unit: 'f84' });
+    goal: { t: 'ace', n: 15 }, w: { n: 9, pts: 17, mix: [.2, 0, .2, .6], ramp: [.8, 1.3] }, cr: 680, inc: 7.8, fleet: { f16: 3, f15e: 3, ah64: 3, mq9: 1, e2: 1 }, def: .15, unit: 'f84' });
   M.push({ n: 16, ch: 3, date: [1951, 4, 22], place: T('Río Imjin', 'Imjin River'), name: T('La ofensiva de primavera', 'The Spring Offensive'),
     ctx: T('Los chinos lanzan una enorme ofensiva nocturna para retomar Seúl. En el río Imjin, el regimiento británico Gloucestershire resiste cuatro días contra fuerzas mucho mayores. Por la noche, los Po-2 hostigan las posiciones y los aeródromos de la retaguardia.',
       'The Chinese launch a huge night offensive to retake Seoul. At the Imjin River the British Gloucestershire Regiment holds out four days against much larger forces. At night, Po-2s harass rear positions and airfields.'),
@@ -44,7 +44,7 @@
     notes: [[45, T('Los chinos cruzan el Imjin por oleadas, de noche.', 'The Chinese cross the Imjin in waves, at night.')], [160, T('Bengalas lanzadas desde el aire iluminan el frente.', 'Flares dropped from the air light up the front.')]],
     view: [37.9, 126.9, 3.4], wx: 'night', as: [['SEÚL', 'capital', 37.57, 126.98], ['KIMPO K-14', 'airbase', 37.56, 126.8], ['SUWON K-13', 'airbase', 37.24, 127.01], ['UIJONGBU', 'power', 37.74, 127.05]],
     sites: [['SARIWON', 38.51, 125.76], ['SUNAN', 39.2, 125.67], ['HAEJU', 38.04, 125.71]], front: [[38.0, 126.4], [38.0, 127.0], [38.1, 127.7]],
-    w: { n: 10, pts: 18, mix: [.3, .3, .1, .3], ramp: [.8, 1.3] }, cr: 700, inc: 8, fleet: { f16: 3, f15e: 3, ah64: 4, mq9: 1, e2: 1 }, def: .15, unit: 'po2' });
+    lim: .6, w: { n: 10, pts: 18, mix: [.3, .3, .1, .3], ramp: [.8, 1.3] }, cr: 700, inc: 8, fleet: { f16: 3, f15e: 3, ah64: 4, mq9: 1, e2: 1 }, def: .15, unit: 'po2' });
   M.push({ n: 17, ch: 4, date: [1951, 5, 20], place: T('Callejón de los MiG', 'MiG Alley'), name: T('El primer as a reacción', 'The first jet ace'),
     ctx: T('El noroeste de Corea del Norte, entre el río Yalu y el Chongchon, se bautiza como «Callejón de los MiG». Cada día, patrullas de F-86 suben a más de 10 000 m para enfrentarse a los MiG-15. El 20 de mayo de 1951 el capitán James Jabara derriba dos y se convierte en el primer as de la guerra de reactores.',
       'Northwest North Korea, between the Yalu and the Chongchon rivers, is nicknamed "MiG Alley". Every day F-86 patrols climb above 10,000 m to face MiG-15s. On 20 May 1951 Captain James Jabara downs two and becomes the first ace of the jet war.'),
@@ -55,7 +55,7 @@
     notes: [[45, T('Cuatro MiG-15 cruzan el Yalu en formación abierta.', 'Four MiG-15s cross the Yalu in open formation.')], [160, T('«Dos MiG derribados.» Capitán Jabara, 4.º Ala.', '"Two MiGs down." Captain Jabara, 4th Wing.')]],
     view: [38.4, 126.3, 4.6], wx: 'clear', as: [['KIMPO', 'capital', 37.56, 126.8], ['SEÚL K-16', 'airbase', 37.53, 126.93], ['SUWON K-13', 'airbase', 37.24, 127.01], ['INCHEON', 'port', 37.46, 126.63]],
     sites: [['SINUIJU', 40.1, 124.4], ['ANTUNG', 40.0, 124.15, 1], ['NAMSI', 39.85, 125.55], ['SINANJU', 39.62, 125.65]], front: [[38.1, 125.9], [38.0, 126.9], [38.1, 127.7]],
-    w: { n: 9, pts: 18, mix: [.1, 0, .1, .8], ramp: [.8, 1.3] }, cr: 720, inc: 8.2, fleet: { f16: 2, f15e: 5, ah64: 2, mq9: 1, e2: 1 }, def: .15, unit: 'aces' });
+    goal: { t: 'ace', n: 20 }, w: { n: 9, pts: 18, mix: [.1, 0, .1, .8], ramp: [.8, 1.3] }, cr: 720, inc: 8.2, fleet: { f16: 2, f15e: 5, ah64: 2, mq9: 1, e2: 1 }, def: .15, unit: 'aces' });
   M.push({ n: 18, ch: 4, date: [1951, 8, 0], place: T('Corea del Norte', 'North Korea'), name: T('Operación Strangle', 'Operation Strangle'),
     ctx: T('Desde agosto de 1951 la aviación de la ONU intenta «estrangular» el abastecimiento enemigo cortando ferrocarriles y carreteras. Es una campaña de interdicción costosa: la artillería antiaérea norcoreana, cada vez más numerosa, derriba muchos aviones.',
       'From August 1951 UN aviation tries to "strangle" enemy supply by cutting railways and roads. It is a costly interdiction campaign: the increasingly numerous North Korean antiaircraft guns shoot down many aircraft.'),
@@ -66,5 +66,5 @@
     notes: [[45, T('Estrangular el abastecimiento: ferrocarriles y puentes, objetivo diario.', 'Strangling supply: railways and bridges, a daily target.')], [160, T('La AAA enemiga derriba otro F-51 sobre la línea.', 'Enemy AAA shoots down another F-51 over the line.')]],
     view: [38.6, 126.3, 4.6], wx: 'clear', as: [['SEÚL', 'capital', 37.57, 126.98], ['KIMPO K-14', 'airbase', 37.56, 126.8], ['SUWON K-13', 'airbase', 37.24, 127.01], ['INCHEON', 'port', 37.46, 126.63]],
     sites: [['SARIWON', 38.51, 125.76], ['SUNAN', 39.2, 125.67], ['PYONGYANG', 39.03, 125.88], ['HAEJU', 38.04, 125.71], ['NAMSI', 39.85, 125.55]], front: [[38.1, 125.9], [38.0, 126.9], [38.1, 127.7]],
-    w: { n: 10, pts: 19, mix: [.4, .2, .2, .2], ramp: [.8, 1.3] }, cr: 740, inc: 8.4, fleet: { f16: 3, f15e: 3, ah64: 4, mq9: 2, e2: 1 }, def: .25, unit: 'flak' });
+    goal: { t: 'strike', n: 2 }, w: { n: 10, pts: 19, mix: [.4, .2, .2, .2], ramp: [.8, 1.3] }, cr: 740, inc: 8.4, fleet: { f16: 3, f15e: 3, ah64: 4, mq9: 2, e2: 1 }, def: .25, unit: 'flak' });
 })();

@@ -4,6 +4,14 @@
   const T = (es, en) => ({ es, en });
   const H = window.C2_HIST = window.C2_HIST || {};
   const K = H.korea = { id: 'korea', years: '1950–1953', map: 'korea', missions: [], units: {}, gloss: [] };
+  // Condecoraciones reales de la guerra (colores estilizados). Condiciones: wins n | chapter n | stars3 n | ace | all.
+  K.ribbons = [
+    { id: 'ksm', name: T('Medalla de Servicio en Corea', 'Korean Service Medal'), desc: T('Condecoración de EE. UU. por servir en el teatro coreano entre 1950 y 1954. Gana tu primera misión.', 'US decoration for service in the Korean theater between 1950 and 1954. Win your first mission.'), st: [['#7fb6dc', 3], ['#f4f4f4', 1], ['#7fb6dc', 6], ['#f4f4f4', 1], ['#7fb6dc', 3]], c: { t: 'wins', n: 1 } },
+    { id: 'unsm', name: T('Medalla de Servicio de la ONU', 'United Nations Service Medal'), desc: T('Para quienes sirvieron bajo mando de la ONU en Corea. Completa los capítulos I y II.', 'For those who served under UN command in Korea. Complete chapters I and II.'), st: [['#f4f4f4', 1], ['#5b92e5', 2], ['#f4f4f4', 1], ['#5b92e5', 2], ['#f4f4f4', 1]], c: { t: 'chapter', n: 2 } },
+    { id: 'air', name: T('Medalla Aérea', 'Air Medal'), desc: T('Premia logros meritorios en vuelo. Consigue que uno de tus pilotos llegue a 5 derribos (as).', 'Rewards meritorious achievement in flight. Get one of your pilots to 5 kills (ace).'), st: [['#1c3d8f', 4], ['#e8761a', 1], ['#1c3d8f', 4]], c: { t: 'ace' } },
+    { id: 'dfc', name: T('Cruz de Vuelo Distinguida', 'Distinguished Flying Cross'), desc: T('Para heroísmo o logros extraordinarios en vuelo. Consigue 3 estrellas en 8 misiones.', 'For heroism or extraordinary achievement in flight. Earn 3 stars in 8 missions.'), st: [['#c4262e', 2], ['#f4f4f4', 1], ['#1c3d8f', 2], ['#f4f4f4', 1], ['#c4262e', 2]], c: { t: 'stars3', n: 8 } },
+    { id: 'puc', name: T('Mención Presidencial de Unidad', 'Presidential Unit Citation'), desc: T('Para unidades con heroísmo extraordinario en combate. Completa las 24 misiones.', 'For units with extraordinary heroism in combat. Complete all 24 missions.'), st: [['#f1c232', 1], ['#1c3d8f', 5], ['#f1c232', 1]], c: { t: 'all' } }
+  ];
   K.free = 4;   // las 4 primeras misiones (capítulo I) son gratis; el resto requiere la compra de la campaña
   // Mejoras propias de la campaña (puntos de campaña ganados con estrellas). id = clave del motor.
   K.upg = [
@@ -30,6 +38,9 @@
   ];
   /* orden de batalla de época (valores previos a la escala del mundo; unlock = misión a partir de la cual está disponible) */
   K.era = {
+    callsigns: ['Lucky', 'Hawk', 'Tex', 'Duke', 'Moose', 'Rocky', 'Dutch', 'Ace', 'Bluebird', 'Mustang', 'Falcon', 'Skipper', 'Dingus', 'Maverick', 'Bandit', 'Sparrow', 'Cowboy', 'Badger', 'Gunner', 'Yankee', 'Kodiak', 'Rebel', 'Eagle', 'Viking'],
+    skin: { sea: ['#17140d', '#0f0d08'], grid: 'rgba(214,180,110,.10)', txt: 'rgba(222,196,140,.55)', cyan: '#9dff8a', vig: .5,
+      land: { f: ['#2a2417', 'rgba(120,175,230,.6)'], h: ['#34201a', 'rgba(235,105,85,.5)'], n: ['#211e16', 'rgba(175,160,125,.3)'] } },
     sam: {
       gun: { short: 'AAA', cost: 40, range: 90, reload: .45, ammo: 100, mspeed: 650, mcost: 1, sensor: 65, restock: 18, unlock: 1, pk: { drone: .30, cruise: .14, ballistic: .03, arm: 0 } },
       shorad: { short: 'AA-40', cost: 100, range: 150, reload: 1.6, ammo: 16, mspeed: 340, mcost: 10, sensor: 100, restock: 50, unlock: 3, pk: { drone: .60, cruise: .50, ballistic: .10, arm: 0 } },

@@ -229,3 +229,10 @@ C2_HTR('korea', 'fr', {
 "units|yak18|d":"Petits avions d'entraînement et biplans employés dans des raids de nuit. Ils firent peu de dégâts, mais obligèrent l'ONU à maintenir radars, projecteurs et chasseurs de nuit en alerte permanente.",
 "units|dmz|d":"La frontière fortifiée laissée par l'armistice. Il n'existe pas de traité de paix : techniquement, les deux Corées sont toujours en guerre."
 });
+C2_HTR('korea', 'fr', {
+"ribbons|0|name":"Médaille du service en Corée","ribbons|0|desc":"Décoration américaine pour le service sur le théâtre coréen entre 1950 et 1954. Gagnez votre première mission.",
+"ribbons|1|name":"Médaille du service des Nations unies","ribbons|1|desc":"Pour ceux qui ont servi sous commandement de l'ONU en Corée. Terminez les chapitres I et II.",
+"ribbons|2|name":"Médaille de l'Air","ribbons|2|desc":"Récompense un mérite en vol. Faites atteindre 5 victoires (as) à l'un de vos pilotes.",
+"ribbons|3|name":"Distinguished Flying Cross","ribbons|3|desc":"Pour un héroïsme ou un exploit extraordinaire en vol. Obtenez 3 étoiles dans 8 missions.",
+"ribbons|4|name":"Citation présidentielle d'unité","ribbons|4|desc":"Pour des unités ayant fait preuve d'un héroïsme extraordinaire au combat. Terminez les 24 missions."
+});

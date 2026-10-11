@@ -11,7 +11,7 @@
     notes: [[50, T('La brigada paracaidista salta sobre Sukchon y Sunchon.', 'The airborne brigade jumps at Sukchon and Sunchon.')], [160, T('Los transportes C-119 regresan a Kimpo.', 'C-119 transports return to Kimpo.')]],
     view: [39.0, 126.0, 3.6], wx: 'clear', as: [['PYONGYANG', 'capital', 39.02, 125.75], ['K-23 SUNAN', 'airbase', 39.2, 125.67], ['K-24 PYONGYANG E.', 'airbase', 38.95, 126.0], ['CHINNAMPO', 'port', 38.74, 125.4]],
     sites: [['SINUIJU', 40.1, 124.4], ['UIJU', 40.2, 124.55], ['NAMSI', 39.85, 125.55]], front: [[39.7, 124.7], [39.6, 125.8], [39.5, 126.8]],
-    w: { n: 9, pts: 10, mix: [.8, .1, .1, 0], ramp: [.8, 1.3] }, cr: 520, inc: 6.2, fleet: { f16: 3, ah64: 3, mq9: 1, e2: 1 }, def: .1, unit: 'f80' });
+    goal: { t: 'strike', n: 2 }, w: { n: 9, pts: 10, mix: [.8, .1, .1, 0], ramp: [.8, 1.3] }, cr: 520, inc: 6.2, fleet: { f16: 3, ah64: 3, mq9: 1, e2: 1 }, def: .1, unit: 'f80' });
   M.push({ n: 8, ch: 1, date: [1950, 11, 1], place: T('Río Yalu', 'Yalu River'), name: T('Aparece el MiG-15', 'The MiG-15 appears'),
     ctx: T('Cerca del Yalu, frontera con China, pilotos de la ONU descubren un nuevo caza de ala en flecha: el MiG-15. Despega desde Manchuria, al otro lado del río, donde las órdenes de Washington prohíben perseguirlo o atacar sus bases. La guerra cambia de naturaleza.',
       'Near the Yalu, the border with China, UN pilots discover a new swept-wing fighter: the MiG-15. It takes off from Manchuria, across the river, where orders from Washington forbid chasing it or attacking its bases. The war changes in nature.'),
@@ -33,7 +33,7 @@
     notes: [[45, T('B-29 en ruta hacia el puente de Sinuiju.', 'B-29s en route to the Sinuiju bridge.')], [160, T('Primer derribo de un MiG por un F-80C: ¡reactor contra reactor!', 'First MiG kill by an F-80C: jet against jet!')]],
     view: [39.8, 125.3, 3.6], wx: 'clear', as: [['ANJU', 'capital', 39.62, 125.65], ['K-23 SUNAN', 'airbase', 39.2, 125.67], ['K-24 PYONGYANG E.', 'airbase', 39.0, 126.0], ['CHINNAMPO', 'port', 38.74, 125.4]],
     sites: [['SINUIJU', 40.1, 124.4], ['ANTUNG', 40.0, 124.15, 1], ['FENGCHENG', 40.45, 124.05, 1]], front: [[40.1, 124.6], [40.2, 125.5], [40.4, 126.6]],
-    w: { n: 9, pts: 12, mix: [.5, 0, .1, .4], ramp: [.8, 1.3] }, cr: 560, inc: 6.6, fleet: { f16: 4, ah64: 3, mq9: 1, e2: 1 }, def: .12, unit: 'b29' });
+    goal: { t: 'strike', n: 1 }, w: { n: 9, pts: 12, mix: [.5, 0, .1, .4], ramp: [.8, 1.3] }, cr: 560, inc: 6.6, fleet: { f16: 4, ah64: 3, mq9: 1, e2: 1 }, def: .12, unit: 'b29' });
   M.push({ n: 10, ch: 2, date: [1950, 11, 27], place: T('Hungnam y Yonpo', 'Hungnam and Yonpo'), name: T('Invierno en el embalse de Chosin', 'Winter at the Chosin Reservoir'),
     ctx: T('Cientos de miles de soldados chinos atacan por sorpresa. Los Marines, rodeados cerca del embalse de Chosin con temperaturas muy por debajo de cero, dependen del apoyo aéreo y de los suministros lanzados en paracaídas. El aeródromo de Yonpo, junto a Hungnam, es su cordón umbilical.',
       'Hundreds of thousands of Chinese soldiers attack by surprise. The Marines, surrounded near the Chosin Reservoir in far-below-freezing temperatures, depend on air support and parachute-dropped supplies. Yonpo airfield, next to Hungnam, is their lifeline.'),
@@ -44,7 +44,7 @@
     notes: [[45, T('Temperaturas de −30 °C en el embalse de Chosin.', 'Temperatures of −30 °C at the Chosin Reservoir.')], [160, T('Los Corsair dan apoyo cercano a la columna que desciende.', 'Corsairs give close support to the column coming down.')]],
     view: [39.8, 127.4, 3.4], wx: 'storm', as: [['HUNGNAM', 'capital', 39.83, 127.62], ['K-27 YONPO', 'airbase', 39.85, 127.5], ['K-25 WONSAN', 'airbase', 39.17, 127.45], ['CHOSIN', 'power', 40.45, 127.2]],
     sites: [['SINUIJU', 40.1, 124.4, 0, 1], ['CHONGJIN', 41.78, 129.8, 0, 1]], front: [[40.6, 126.6], [40.5, 127.4], [40.4, 128.2]],
-    w: { n: 9, pts: 13, mix: [.6, .1, .1, .2], ramp: [.8, 1.3] }, cr: 580, inc: 6.8, fleet: { f16: 4, ah64: 3, mq9: 1, e2: 1 }, def: .12, unit: 'cas' });
+    goal: { t: 'keep', a: 1, min: 55 }, lim: .75, w: { n: 9, pts: 13, mix: [.6, .1, .1, .2], ramp: [.8, 1.3] }, cr: 580, inc: 6.8, fleet: { f16: 4, ah64: 3, mq9: 1, e2: 1 }, def: .12, unit: 'cas' });
   M.push({ n: 11, ch: 2, date: [1950, 12, 17], place: T('Kimpo y el Yalu', 'Kimpo and the Yalu'), name: T('Llegan los Sabre', 'The Sabres arrive'),
     ctx: T('Alarmado por la superioridad del MiG-15, el mando envía a Corea el F-86 Sabre del 4.º Ala de Caza. Es el único avión de la ONU capaz de pelear de igual a igual. Su primera patrulla sobre el Yalu, el 17 de diciembre de 1950, termina con un MiG derribado.',
       'Alarmed by the MiG-15\'s superiority, Command sends the F-86 Sabre of the 4th Fighter Wing to Korea. It is the only UN aircraft able to fight on equal terms. Its first patrol over the Yalu on 17 December 1950 ends with a MiG shot down.'),
@@ -55,7 +55,7 @@
     notes: [[45, T('Sabres del 4.º Ala en patrulla sobre el Yalu.', 'Sabres of the 4th Wing on patrol over the Yalu.')], [150, T('Combate a 12 000 m: MiG y Sabre frente a frente.', 'Combat at 12,000 m: MiG and Sabre head to head.')]],
     view: [38.6, 126.2, 4.0], wx: 'clear', as: [['SEÚL', 'capital', 37.57, 126.98], ['KIMPO K-14', 'airbase', 37.56, 126.8], ['SUWON K-13', 'airbase', 37.24, 127.01], ['INCHEON', 'port', 37.46, 126.63]],
     sites: [['SARIWON', 38.51, 125.76], ['SINANJU', 39.62, 125.65], ['ANTUNG', 40.05, 124.3, 1]], front: [[39.2, 125.3], [39.0, 126.2], [38.9, 127.2]],
-    w: { n: 9, pts: 14, mix: [.5, .1, .1, .3], ramp: [.8, 1.3] }, cr: 600, inc: 7, fleet: { f16: 3, f15e: 2, ah64: 3, mq9: 1, e2: 1 }, def: .12, unit: 'f86' });
+    goal: { t: 'ace', n: 8 }, w: { n: 9, pts: 14, mix: [.5, .1, .1, .3], ramp: [.8, 1.3] }, cr: 600, inc: 7, fleet: { f16: 3, f15e: 2, ah64: 3, mq9: 1, e2: 1 }, def: .12, unit: 'f86' });
   M.push({ n: 12, ch: 2, date: [1950, 12, 24], place: T('Hungnam', 'Hungnam'), name: T('La evacuación de Hungnam', 'The Hungnam evacuation'),
     ctx: T('Con el frente roto, la ONU evacúa por mar el puerto de Hungnam: unos 100 000 soldados y casi otros tantos civiles coreanos que huyen. Los cañones de los barcos y los aviones de los portaaviones forman un anillo defensivo; por la noche, biplanos Po-2 hostigan al perímetro.',
       'With the front broken, the UN evacuates Hungnam by sea: about 100,000 soldiers and almost as many fleeing Korean civilians. Ship guns and carrier aircraft form a defensive ring; at night, Po-2 biplanes harass the perimeter.'),
@@ -66,5 +66,5 @@
     notes: [[45, T('Los cruceros bombardean el perímetro para cubrir la salida.', 'Cruisers shell the perimeter to cover the withdrawal.')], [160, T('Los últimos barcos cargan refugiados en los muelles.', 'The last ships load refugees at the docks.')]],
     view: [39.6, 128.0, 3.2], wx: 'night', as: [['HUNGNAM', 'capital', 39.83, 127.62], ['TF-77', 'airbase', 39.5, 129.2], ['K-27 YONPO', 'airbase', 39.85, 127.5], ['SONGJIN', 'port', 39.7, 127.4]],
     sites: [['WONSAN', 39.15, 127.45, 0, 1], ['CHONGJIN', 41.78, 129.8, 0, 1]], front: [[40.3, 126.8], [40.1, 127.5], [40.0, 128.2]],
-    w: { n: 10, pts: 14, mix: [.4, .3, .1, .2], ramp: [.8, 1.3] }, cr: 620, inc: 7.2, fleet: { f16: 3, f15e: 1, ah64: 3, mq9: 1, e2: 1 }, def: .12, unit: 'evac' });
+    goal: { t: 'evac', a: 0, T: 200 }, w: { n: 10, pts: 14, mix: [.4, .3, .1, .2], ramp: [.8, 1.3] }, cr: 620, inc: 7.2, fleet: { f16: 3, f15e: 1, ah64: 3, mq9: 1, e2: 1 }, def: .12, unit: 'evac' });
 })();

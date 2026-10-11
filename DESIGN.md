@@ -107,3 +107,13 @@ La fuente va incrustada en base64 en `style.css` (funciona desde `file://` y en 
 - **Pago**: producto `c2hell_camp_<id>` (no incluido en «Juego completo»); `C.free` misiones gratis (Corea: 4). Lógica en `Store.camp()` y `histPaid()`.
 - **Mejoras propias**: `C.upg` (ids del motor, nombres/descripciones propios); puntos de campaña `save.hist[id].cp` (primera victoria 10+10×★; repetir +5 por ★ extra); niveles en `save.hist[id].up`; `G.up` de una misión histórica sale de ahí (no de las mejoras de la campaña moderna).
 - Contenido escrito sin revisión de historiador.
+
+## Impacto alto/medio sobre las campañas (Fase G)
+- **Objetivos de misión** (`ms.goal`, `ms.lim` en `hist/<camp>_m*.js`): `evac` (proteger un activo y llenar una barra de evacuación en T s), `strike` (destruir N sitios con misiones de ataque), `ace` (N derribos aéreos), `keep` (activo con ≥ X % de integridad al final). Sin `goal` = sobrevivir. `lim` multiplica la munición inicial. Motor: `goalInit/goalTick/goalProgress` en `game.js`; chip `#goal` en el HUD; el motivo de derrota (`goal.fail.*`) sale en el debrief.
+- **Skin de época** (`era.skin`): mar sepia, rejilla y textos, cian → fósforo verde, viñeta y scanlines; se aplica con `applyEra → skinApply` (clase `body.s50`) y se retira al volver al menú. Los toasts «hist» salen como teletipo (`ttyType`).
+- **Fotos de archivo**: `hist/img/` + `hist/img/credits.js`. `histImg` solo pinta una figura si existe crédito (licencia) para esa foto. No hay fotos incluidas: `tools/fetch_hist_photos.js` las descarga/redimensiona desde `manifest.json` (rellenar URLs de dominio público/CC con atribución) y escribe `credits.js`.
+- **Indicativos y ases**: `era.callsigns` (por campaña) → `an(a)`; los derribos se acumulan en `save.hist[camp].aces`. Panel de ases en el hub de campaña, «mejor piloto» en el debrief.
+- **Condecoraciones**: `C.ribbons` con condiciones evaluadas por `ribbonOk`; se guardan en `save.hist[camp].rib`.
+- **Parte de misión compartible**: `reportCard(d)` dibuja un PNG en canvas; `shareReport` usa Web Share con archivo y cae a descarga.
+- **Tienda**: `tools/store_shots.js` (capturas 1080×1920 ×5 idiomas), `tools/store_graphic.js` (feature graphic 1024×500), `store/listing_<lang>.md`. Playtests: `PLAYTEST.md`.
+- **Limitaciones conocidas**: sin fotos reales, sin trailer por campaña, balance verificado solo con bot, fr/de/pt sin revisión nativa, comportamiento de Web Share en Capacitor sin probar en dispositivo.

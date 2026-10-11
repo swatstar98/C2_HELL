@@ -11,7 +11,7 @@
     notes: [[45, T('Los T-34 norcoreanos ya han llegado a los arrabales de Seúl.', 'North Korean T-34s have reached the outskirts of Seoul.')], [150, T('Los C-54 siguen cargando civiles en Kimpo bajo ataque.', 'C-54s keep loading civilians at Kimpo under attack.')]],
     view: [37.3, 126.9, 3.2], wx: 'clear', as: [['SEÚL', 'capital', 37.57, 126.98], ['KIMPO', 'airbase', 37.56, 126.80], ['SUWON', 'airbase', 37.24, 127.01], ['INCHEON', 'port', 37.46, 126.63]],
     sites: [['SARIWON', 38.51, 125.76], ['SUNAN', 39.2, 125.67]], front: [[37.95, 126.2], [37.85, 126.8], [37.85, 127.3], [37.95, 127.8]],
-    w: { n: 8, pts: 4, mix: [1, 0, 0, 0], ramp: [.8, 1.2] }, cr: 400, inc: 5, fleet: { f16: 2 }, def: .06, unit: 'f82' });
+    goal: { t: 'evac', a: 1, T: 190 }, w: { n: 8, pts: 4, mix: [1, 0, 0, 0], ramp: [.8, 1.2] }, cr: 400, inc: 5, fleet: { f16: 2 }, def: .06, unit: 'f82' });
   M.push({ n: 2, ch: 0, date: [1950, 7, 3], place: T('Mar Amarillo · Pyongyang', 'Yellow Sea · Pyongyang'), name: T('Los portaaviones entran en guerra', 'Carriers enter the war'),
     ctx: T('El USS Valley Forge y el HMS Triumph lanzan los primeros ataques embarcados de la guerra contra los aeródromos de Pyongyang. Para la ONU, controlar el aire significa destruir a los aviones enemigos en el suelo antes de que despeguen.',
       'USS Valley Forge and HMS Triumph launch the first carrier strikes of the war against the Pyongyang airfields. For the UN, controlling the air means destroying enemy aircraft on the ground before they take off.'),
@@ -22,7 +22,7 @@
     notes: [[40, T('Los portaaviones lanzan desde el mar Amarillo.', 'The carriers are launching from the Yellow Sea.')], [140, T('Los reconocimientos muestran aviones dispersos en Sunan.', 'Recon shows aircraft dispersed at Sunan.')]],
     view: [37.8, 126.6, 4.4], wx: 'clear', as: [['SUWON', 'capital', 37.24, 127.01], ['VALLEY FORGE', 'airbase', 37.0, 124.9], ['KIMPO', 'airbase', 37.56, 126.8], ['INCHEON', 'port', 37.46, 126.63]],
     sites: [['PYONGYANG', 39.03, 125.88], ['SUNAN', 39.2, 125.67], ['SARIWON', 38.51, 125.76]], front: [[37.5, 125.9], [37.3, 127.0], [37.2, 127.6], [37.4, 128.5]],
-    w: { n: 8, pts: 5, mix: [1, 0, 0, 0], ramp: [.8, 1.3] }, cr: 420, inc: 5.2, fleet: { f16: 3 }, def: .05, unit: 'f9f' });
+    goal: { t: 'strike', n: 2 }, w: { n: 8, pts: 5, mix: [1, 0, 0, 0], ramp: [.8, 1.3] }, cr: 420, inc: 5.2, fleet: { f16: 3 }, def: .05, unit: 'f9f' });
   M.push({ n: 3, ch: 0, date: [1950, 8, 0], place: T('Taegu · Perímetro de Pusan', 'Taegu · Pusan Perimeter'), name: T('El aeródromo K-2', 'Airfield K-2'),
     ctx: T('Las tropas de la ONU se repliegan hasta una bolsa de unos 140 km por 100 en el sureste. El general Walker ordena resistir sin retroceder más. Taegu, con su aeródromo K-2, es la llave del frente; los últimos Yak y Il-10 del Norte intentan golpearlo al amanecer y al atardecer.',
       'UN troops fall back to a pocket of about 140 km by 100 in the southeast. General Walker orders a stand with no further retreat. Taegu, with its K-2 airfield, is the key to the front; the last Yaks and Il-10s of the North try to hit it at dawn and dusk.'),
@@ -33,7 +33,7 @@
     notes: [[50, T('Orden de Walker: «Resistir o morir» en el Perímetro.', 'Walker\'s order: "Stand or die" at the Perimeter.')], [160, T('El apoyo aéreo cercano llega a las líneas en minutos.', 'Close air support reaches the lines within minutes.')]],
     view: [35.7, 128.7, 3.2], wx: 'fog', as: [['TAEGU', 'capital', 35.87, 128.6], ['K-2 TAEGU', 'airbase', 35.9, 128.66], ['PUSAN', 'port', 35.1, 129.04], ['POHANG', 'airbase', 35.99, 129.42]],
     sites: [['SARIWON', 38.51, 125.76, 0, 1], ['WONSAN', 39.15, 127.45, 0, 1]], front: [[36.6, 128.1], [36.2, 128.6], [36.1, 129.1], [35.5, 128.2], [35.1, 128.0]],
-    w: { n: 8, pts: 6, mix: [.9, .1, 0, 0], ramp: [.8, 1.3] }, cr: 440, inc: 5.4, fleet: { f16: 2, ah64: 2 }, def: .08, unit: 'f51' });
+    goal: { t: 'keep', a: 1, min: 60 }, w: { n: 8, pts: 6, mix: [.9, .1, 0, 0], ramp: [.8, 1.3] }, cr: 440, inc: 5.4, fleet: { f16: 2, ah64: 2 }, def: .08, unit: 'f51' });
   M.push({ n: 4, ch: 0, date: [1950, 9, 1], place: T('Pusan', 'Pusan'), name: T('El puerto que no puede caer', 'The port that cannot fall'),
     ctx: T('A principios de septiembre el Norte lanza su última gran ofensiva contra el Perímetro. Pusan es el único puerto grande que conserva la ONU: por él entran refuerzos, munición y combustible. Si cae, la guerra se pierde.',
       'In early September the North launches its last big offensive against the Perimeter. Pusan is the only major port the UN holds: reinforcements, ammunition and fuel come through it. If it falls, the war is lost.'),
@@ -55,7 +55,7 @@
     notes: [[40, T('La flota de invasión entra en el canal de Flying Fish.', 'The invasion fleet enters the Flying Fish channel.')], [150, T('Los Marines toman Wolmi-do. Marea alta en camino.', 'Marines take Wolmi-do. High tide approaching.')]],
     view: [37.2, 126.6, 3.4], wx: 'clear', as: [['INCHEON', 'capital', 37.46, 126.63], ['ESCOLTA', 'airbase', 37.0, 125.4], ['YONGDUNGPO', 'power', 37.52, 126.9], ['TRANSPORTES', 'port', 37.3, 126.5]],
     sites: [['SARIWON', 38.51, 125.76], ['SUNAN', 39.2, 125.67]], front: [[37.7, 125.9], [37.6, 126.8], [37.5, 127.3]],
-    w: { n: 9, pts: 8, mix: [.8, .1, .1, 0], ramp: [.8, 1.3] }, cr: 480, inc: 5.8, fleet: { f16: 2, ah64: 3, mq9: 1 }, def: .1, unit: 'f4u' });
+    goal: { t: 'keep', a: 1, min: 75 }, w: { n: 9, pts: 8, mix: [.8, .1, .1, 0], ramp: [.8, 1.3] }, cr: 480, inc: 5.8, fleet: { f16: 2, ah64: 3, mq9: 1 }, def: .1, unit: 'f4u' });
   M.push({ n: 6, ch: 1, date: [1950, 9, 17], place: T('Kimpo', 'Kimpo'), name: T('Kimpo, de nuevo en manos aliadas', 'Kimpo back in Allied hands'),
     ctx: T('Los Marines recuperan el aeródromo de Kimpo. Se convierte en el centro del puente aéreo de la ONU: transportes C-54 y C-119 traen suministros y evacúan heridos. Los restos de la aviación norcoreana intentan destruir las pistas.',
       'The Marines retake Kimpo airfield. It becomes the hub of the UN airlift: C-54 and C-119 transports bring supplies and evacuate wounded. The remains of the North Korean air force try to destroy the runways.'),
@@ -66,5 +66,5 @@
     notes: [[50, T('Los zapadores reparan los cráteres de la pista.', 'Engineers repair the runway craters.')], [160, T('Llegan los primeros C-119 con munición.', 'The first C-119s arrive with ammunition.')]],
     view: [37.5, 126.8, 3.0], wx: 'night', as: [['SEÚL', 'capital', 37.57, 126.98], ['KIMPO K-14', 'airbase', 37.56, 126.8], ['SUWON', 'airbase', 37.24, 127.01], ['INCHEON', 'port', 37.46, 126.63]],
     sites: [['SARIWON', 38.51, 125.76], ['SUNAN', 39.2, 125.67], ['HAEJU', 38.04, 125.71]], front: [[37.8, 126.4], [37.8, 126.9], [37.8, 127.5]],
-    w: { n: 9, pts: 9, mix: [.7, .2, .1, 0], ramp: [.8, 1.3] }, cr: 500, inc: 6, fleet: { f16: 3, ah64: 3, mq9: 1 }, def: .1, unit: 'c119' });
+    goal: { t: 'evac', a: 1, T: 200 }, w: { n: 9, pts: 9, mix: [.7, .2, .1, 0], ramp: [.8, 1.3] }, cr: 500, inc: 6, fleet: { f16: 3, ah64: 3, mq9: 1 }, def: .1, unit: 'c119' });
 })();

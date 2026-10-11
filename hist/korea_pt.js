@@ -229,3 +229,10 @@ C2_HTR('korea', 'pt', {
 "units|yak18|d":"Pequenos aviões de treinamento e biplanos usados em incursões noturnas. Causaram pouco dano, mas obrigaram a ONU a manter radares, holofotes e caças noturnos em alerta permanente.",
 "units|dmz|d":"A fronteira fortificada deixada pelo armistício. Não há tratado de paz: tecnicamente as duas Coreias continuam em guerra."
 });
+C2_HTR('korea', 'pt', {
+"ribbons|0|name":"Medalha de Serviço na Coreia","ribbons|0|desc":"Condecoração dos EUA por servir no teatro coreano entre 1950 e 1954. Vença sua primeira missão.",
+"ribbons|1|name":"Medalha de Serviço das Nações Unidas","ribbons|1|desc":"Para quem serviu sob comando da ONU na Coreia. Conclua os capítulos I e II.",
+"ribbons|2|name":"Medalha Aérea","ribbons|2|desc":"Premia realizações meritórias em voo. Faça um de seus pilotos chegar a 5 abates (ás).",
+"ribbons|3|name":"Distinguished Flying Cross","ribbons|3|desc":"Por heroísmo ou realização extraordinária em voo. Conquiste 3 estrelas em 8 missões.",
+"ribbons|4|name":"Citação Presidencial de Unidade","ribbons|4|desc":"Para unidades com heroísmo extraordinário em combate. Conclua as 24 missões."
+});

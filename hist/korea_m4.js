@@ -11,7 +11,7 @@
     notes: [[45, T('Nueve B-29 en ruta hacia Namsi con escolta.', 'Nine B-29s en route to Namsi with escort.')], [160, T('Cerca de 100 MiG despegan de Antung.', 'About 100 MiGs take off from Antung.')]],
     view: [38.9, 125.9, 4.8], wx: 'clear', as: [['SEÚL', 'capital', 37.57, 126.98], ['KIMPO K-14', 'airbase', 37.56, 126.8], ['SUWON K-13', 'airbase', 37.24, 127.01], ['INCHEON', 'port', 37.46, 126.63]],
     sites: [['NAMSI', 39.85, 125.55], ['SINUIJU', 40.1, 124.4], ['ANTUNG', 40.0, 124.15, 1], ['SINANJU', 39.62, 125.65]], front: [[38.1, 125.9], [38.0, 126.9], [38.1, 127.7]],
-    w: { n: 9, pts: 20, mix: [.15, 0, .15, .7], ramp: [.8, 1.3] }, cr: 760, inc: 8.6, fleet: { f16: 3, f15e: 5, ah64: 3, mq9: 1, e2: 1 }, def: .18, unit: 'b29n' });
+    goal: { t: 'strike', n: 2 }, w: { n: 9, pts: 20, mix: [.15, 0, .15, .7], ramp: [.8, 1.3] }, cr: 760, inc: 8.6, fleet: { f16: 3, f15e: 5, ah64: 3, mq9: 1, e2: 1 }, def: .18, unit: 'b29n' });
   M.push({ n: 20, ch: 4, date: [1952, 6, 23], place: T('Presa de Sup\'ung', 'Sup\'ung Dam'), name: T('Las presas del Yalu', 'The Yalu dams'),
     ctx: T('Hasta ahora las centrales eléctricas del Yalu estaban fuera de objetivos. En junio de 1952 la ONU decide atacar el complejo de Sup\'ung (Suiho) y otras centrales con cientos de aviones de la USAF y de portaaviones. Es la mayor operación aérea coordinada de la guerra hasta entonces.',
       'Until now the Yalu power plants were off limits. In June 1952 the UN decides to attack the Sup\'ung (Suiho) complex and other plants with hundreds of USAF and carrier aircraft. It is the largest coordinated air operation of the war so far.'),
@@ -22,7 +22,7 @@
     notes: [[45, T('Ola de F-84 y F-80 hacia Sup\'ung; los portaaviones lanzan.', 'Wave of F-84s and F-80s toward Sup\'ung; carriers launching.')], [160, T('Los MiG se lanzan desde Antung a interceptar.', 'MiGs scramble from Antung to intercept.')]],
     view: [38.7, 125.8, 4.8], wx: 'clear', as: [['SEÚL', 'capital', 37.57, 126.98], ['TF-77', 'airbase', 38.3, 124.0], ['KIMPO K-14', 'airbase', 37.56, 126.8], ['SUWON K-13', 'airbase', 37.24, 127.01], ['INCHEON', 'port', 37.46, 126.63]],
     sites: [['SUP\'UNG', 40.45, 124.95], ['SINUIJU', 40.1, 124.4], ['NAMSI', 39.85, 125.55], ['ANTUNG', 40.0, 124.15, 1], ['FENGCHENG', 40.45, 124.05, 1]], front: [[38.6, 125.0], [38.1, 126.2], [38.1, 127.4]],
-    w: { n: 9, pts: 21, mix: [.2, 0, .2, .6], ramp: [.8, 1.3] }, cr: 780, inc: 8.8, fleet: { f16: 3, f15e: 5, ah64: 4, mq9: 1, e2: 1 }, def: .28, unit: 'dam' });
+    goal: { t: 'strike', n: 2 }, w: { n: 9, pts: 21, mix: [.2, 0, .2, .6], ramp: [.8, 1.3] }, cr: 780, inc: 8.8, fleet: { f16: 3, f15e: 5, ah64: 4, mq9: 1, e2: 1 }, def: .28, unit: 'dam' });
   M.push({ n: 21, ch: 5, date: [1952, 8, 29], place: T('Pyongyang', 'Pyongyang'), name: T('El mayor ataque aéreo de la guerra', 'The biggest air raid of the war'),
     ctx: T('Con las negociaciones atascadas en Panmunjom, la ONU recurre a la presión aérea: ataca Pyongyang con más de mil salidas en un solo día, la mayor operación de este tipo hasta entonces. Cazas, bombarderos y aviones de portaaviones saturan el cielo.',
       'With talks bogged down at Panmunjom, the UN resorts to air pressure: it attacks Pyongyang with over a thousand sorties in a single day, the largest operation of its kind so far. Fighters, bombers and carrier aircraft saturate the sky.'),
@@ -33,7 +33,7 @@
     notes: [[45, T('Cazas y bombarderos convergen sobre Pyongyang.', 'Fighters and bombers converge on Pyongyang.')], [160, T('Los portaaviones lanzan su segunda ola del día.', 'Carriers launch their second wave of the day.')]],
     view: [38.7, 126.0, 4.8], wx: 'clear', as: [['SEÚL', 'capital', 37.57, 126.98], ['KIMPO K-14', 'airbase', 37.56, 126.8], ['SUWON K-13', 'airbase', 37.24, 127.01], ['TF-77', 'airbase', 38.0, 124.1]],
     sites: [['PYONGYANG', 39.03, 125.88], ['SUNAN', 39.2, 125.67], ['SARIWON', 38.51, 125.76], ['SINUIJU', 40.1, 124.4], ['ANTUNG', 40.0, 124.15, 1]], front: [[38.1, 125.9], [38.0, 126.9], [38.1, 127.7]],
-    w: { n: 10, pts: 22, mix: [.3, .1, .2, .4], ramp: [.8, 1.3] }, cr: 800, inc: 9, fleet: { f16: 3, f15e: 5, ah64: 4, mq9: 2, e2: 1 }, def: .2, unit: 'raid' });
+    goal: { t: 'strike', n: 2 }, w: { n: 10, pts: 22, mix: [.3, .1, .2, .4], ramp: [.8, 1.3] }, cr: 800, inc: 9, fleet: { f16: 3, f15e: 5, ah64: 4, mq9: 2, e2: 1 }, def: .2, unit: 'raid' });
   M.push({ n: 22, ch: 5, date: [1952, 11, 2], place: T('Corea del Norte', 'North Korea'), name: T('El Skyknight en la noche', 'The Skyknight in the night'),
     ctx: T('Con los B-29 volando de noche, la ONU necesita cazas que vean en la oscuridad. Los F3D Skyknight de los Marines, con radar de a bordo, escoltan a los bombarderos. La noche del 2 de noviembre de 1952 un F3D logra la primera intercepción nocturna de un reactor por otro reactor guiada por radar.',
       'With B-29s flying at night, the UN needs fighters that can see in the dark. Marine F3D Skyknights, with airborne radar, escort the bombers. On the night of 2 November 1952 an F3D achieves the first radar-guided night interception of one jet by another.'),
@@ -44,7 +44,7 @@
     notes: [[45, T('Cielo cerrado y sin luna. Radares en alerta.', 'Overcast and moonless. Radars on alert.')], [160, T('Un Skyknight persigue un contacto rápido, solo por radar.', 'A Skyknight chases a fast contact by radar alone.')]],
     view: [38.2, 126.6, 4.0], wx: 'night', as: [['SEÚL', 'capital', 37.57, 126.98], ['KIMPO K-14', 'airbase', 37.56, 126.8], ['SUWON K-13', 'airbase', 37.24, 127.01], ['INCHEON', 'port', 37.46, 126.63]],
     sites: [['SARIWON', 38.51, 125.76], ['SUNAN', 39.2, 125.67], ['HAEJU', 38.04, 125.71]], front: [[38.1, 125.9], [38.0, 126.9], [38.1, 127.7]],
-    w: { n: 10, pts: 22, mix: [.2, .4, .1, .3], ramp: [.8, 1.3] }, cr: 820, inc: 9.2, fleet: { f16: 3, f15e: 5, ah64: 3, mq9: 2, e2: 2 }, def: .2, unit: 'f3d' });
+    goal: { t: 'ace', n: 20 }, lim: .65, w: { n: 10, pts: 22, mix: [.2, .4, .1, .3], ramp: [.8, 1.3] }, cr: 820, inc: 9.2, fleet: { f16: 3, f15e: 5, ah64: 3, mq9: 2, e2: 2 }, def: .2, unit: 'f3d' });
   M.push({ n: 23, ch: 5, date: [1953, 6, 0], place: T('Incheon', 'Inchon'), name: T('«Charlie» ataca el depósito', '"Charlie" hits the depot'),
     ctx: T('Los biplanos y entrenadores nocturnos norcoreanos, apodados «Bedcheck Charlie», llevan años hostigando a la ONU: lentos, de madera y tela, y casi invisibles a los radares. En junio de 1953 unos pocos aviones consiguen incendiar el mayor depósito de combustible de Incheon.',
       'The North Korean night biplanes and trainers, nicknamed "Bedcheck Charlie", have been harassing the UN for years: slow, wood-and-fabric aircraft almost invisible to radar. In June 1953 a handful of aircraft manage to set fire to Inchon\'s biggest fuel depot.'),
@@ -55,7 +55,7 @@
     notes: [[45, T('Contactos muy lentos y bajos desde el norte: «Charlie».', 'Very slow, low contacts from the north: "Charlie".')], [160, T('Cuidado con el depósito: un solo impacto basta.', 'Watch the depot: a single hit is enough.')]],
     view: [37.5, 126.8, 2.8], wx: 'night', as: [['INCHEON', 'capital', 37.46, 126.63], ['DEPÓSITO COMBUSTIBLE', 'power', 37.53, 126.72], ['KIMPO K-14', 'airbase', 37.56, 126.8], ['SUWON K-13', 'airbase', 37.24, 127.01]],
     sites: [['HAEJU', 38.04, 125.71], ['SARIWON', 38.51, 125.76]], front: [[37.95, 126.4], [37.9, 126.9], [37.95, 127.4]],
-    w: { n: 10, pts: 10, mix: [.15, .55, .1, .2], ramp: [.8, 1.3] }, cr: 840, inc: 9.4, fleet: { f16: 2, f15e: 3, ah64: 4, mq9: 2, e2: 2 }, def: .15, unit: 'yak18' });
+    goal: { t: 'keep', a: 1, min: 80 }, w: { n: 10, pts: 10, mix: [.15, .55, .1, .2], ramp: [.8, 1.3] }, cr: 840, inc: 9.4, fleet: { f16: 2, f15e: 3, ah64: 4, mq9: 2, e2: 2 }, def: .15, unit: 'yak18' });
   M.push({ n: 24, ch: 5, date: [1953, 7, 27], place: T('Panmunjom', 'Panmunjom'), name: T('El último día', 'The last day'),
     ctx: T('Tras dos años de negociaciones, el armisticio se firma en Panmunjom por la mañana y entra en vigor a las 22:00. Hasta el último minuto la aviación de ambos bandos vuela y combate. La zona de paso entre las dos Coreas se convertirá en una frontera fortificada.',
       'After two years of negotiations the armistice is signed at Panmunjom in the morning and takes effect at 22:00. Until the last minute aircraft of both sides fly and fight. The strip between the two Koreas will become a fortified border.'),

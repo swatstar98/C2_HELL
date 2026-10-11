@@ -22,7 +22,9 @@ const tr = (k, p, d) => {
   if (ERA && ERA.str[k]) { let s = ERA.str[k][I18N.lang] || ERA.str[k].en || ERA.str[k].es; if (p) s = s.replace(/\{(\w+)\}/g, (m, q) => p[q] !== undefined ? p[q] : m); return s; }
   return I18N.t(k, p, d);
 };
-const C = { blue: '#3ea6ff', red: '#ff4d4d', cyan: '#4fe0e8', amber: '#ffb020', green: '#35d07f', dim: '#7390a3' };
+const C = { blue: '#3ea6ff', red: '#ff4d4d', cyan: '#4fe0e8', amber: '#ffb020', green: '#35d07f', dim: '#7390a3' }, C0 = Object.assign({}, C);
+/* Piel de época (ERA.skin): paleta cálida del mapa, radar en fósforo verde, viñeta y líneas de barrido. Solo cambia el fondo y el acento; el azul/rojo de bandos se mantiene. */
+function skinApply(sk) { document.body.classList.toggle('s50', !!sk); C.cyan = (sk && sk.cyan) || C0.cyan; }
 
 /* ============================ DEFINICIONES ============================ */
 const SAM = {
@@ -70,7 +72,7 @@ function applyEra(era) {
     for (const p in B) D[p] = B[p] && typeof B[p] === 'object' ? Object.assign({}, B[p]) : B[p];
     if (O) for (const p in O) { let v = O[p]; if (p === 'pk') v = Object.assign({}, v); else if (typeof v === 'number') { if (SC[key].includes(p)) v = Math.round(v * DS); else if (key === 'thr' && p === 'spd') v = Math.round(v * DS * 10) / 10; } D[p] = v; }
   }
-  ERA = era || null;
+  ERA = era || null; skinApply(era && era.skin);
 }
 const KIND_LBL = new Proxy({}, { get: (_, k) => tr('kind.' + k) });
 const ASSET_TYPE = {   // peso en la integridad (w) y probabilidad de ser objetivo (tw)
@@ -259,14 +261,16 @@ function newGame(n, cfg) {
   FXS.shake = 0; FXS.flash = 0; FXS.hold = 0; FXS.pulse = 0; FXS.slow = 0; RP.buf = []; RP.acc = 0;
   buildDock(); setPhase('prep'); refreshTop();
   $('#overlay').classList.add('hidden');
-  G.tut = null; G.tutT = 0;
+  G.tut = null; G.tutT = 0; goalInit();
   if (cfg && cfg.mode === 'tut') coachStart(); else setHint(tr('hint.plan'), 'plan');
   log(tr('log.level', { n, name: lv.name.toUpperCase(), th: tr('th.' + MAP.T.id + '.name').toUpperCase() }));
   if (G.hist) histIntro();
 }
+const CALL_OFF = { f16: 0, f15e: 6, ah64: 12, mq9: 18, e2: 20 };
+const an = a => a.call ? a.label + ' «' + a.call + '»' : a.label;   // designación + indicativo (campañas históricas)
 function mkAir(type, k, home) {
-  const D = AIR[type];
-  return { id: k, type, def: D, label: D.short + '-' + k, x: home.x, y: home.y, home, hdg: 0, state: 'hangar', fuel: D.fuel, ammo: D.ammo, cool: 0, turn: 0, mission: null };
+  const D = AIR[type], cs = ERA && ERA.callsigns, call = cs ? cs[((CALL_OFF[type] || 0) + G.air.filter(q => q.type === type).length) % cs.length] : null;
+  return { id: k, type, def: D, call, kills: 0, label: D.short + '-' + k, x: home.x, y: home.y, home, hdg: 0, state: 'hangar', fuel: D.fuel, ammo: D.ammo, cool: 0, turn: 0, mission: null };
 }
 const airbases = () => G.assets.filter(a => a.type === 'airbase');
 const baseCount = b => G.air.filter(a => a.home === b).length;
@@ -291,6 +295,35 @@ function integrity() {
   let s = 0, w = 0;
   for (const a of G.assets) { s += a.hp * a.w; w += 100 * a.w; }
   return s / w * 100;
+}
+
+/* ============================ OBJETIVOS DE MISIÓN (campañas históricas) ============================
+ * ms.goal = { t, ... } y opcional ms.lim (multiplicador de munición). Tipos:
+ *   evac   {a, n?, T?}   activo a (índice en ms.as) debe sobrevivir y mantenerse sano: la evacuación avanza hasta n (=100) en ~T s, más despacio si hp<70 %.
+ *   strike {n}           destruir al menos n aeródromos hostiles (los santuarios no cuentan).
+ *   ace    {n}           derribar al menos n aeronaves con tus propios aviones (no con baterías).
+ *   keep   {a, min}      el activo a no puede bajar de min % de integridad en ningún momento.
+ * Sin goal (o t:'survive') solo cuenta sobrevivir. Una misión con goal se gana al terminar las oleadas SI el objetivo está cumplido. */
+function goalInit() { const g = G.lv.goal; G.goal = g && g.t !== 'survive' ? Object.assign({ p: 0, fail: null }, g) : null; G.goalFail = null; }
+function goalAsset(g) { return G.assets[g.a]; }
+function goalProgress() {   // 0..1
+  const g = G.goal; if (!g) return 1;
+  if (g.t === 'evac') return clamp(g.p / (g.n || 100), 0, 1);
+  if (g.t === 'strike') return clamp(G.stats.sitesKilled / g.n, 0, 1);
+  if (g.t === 'ace') return clamp((G.stats.airKills || 0) / g.n, 0, 1);
+  return goalAsset(g).hp >= g.min ? 1 : 0;
+}
+function goalTick(dt) {
+  const g = G.goal; if (!g || G.over) return;
+  if (g.t === 'evac') { const a = goalAsset(g); if (a.hp <= 0) { G.goalFail = 'evac'; return; } g.p = Math.min(g.n || 100, g.p + (g.n || 100) / (g.T || 200) * clamp(a.hp / 70, 0, 1) * dt); }
+  else if (g.t === 'keep') { const a = goalAsset(g); if (a.hp < g.min) G.goalFail = 'keep'; }
+}
+function goalText() {
+  const g = G.goal; if (!g) return '';
+  if (g.t === 'evac') return tr('goal.evac', { p: Math.round(goalProgress() * 100) });
+  if (g.t === 'strike') return tr('goal.strike', { a: Math.min(G.stats.sitesKilled, g.n), b: g.n });
+  if (g.t === 'ace') return tr('goal.ace', { a: Math.min(G.stats.airKills || 0, g.n), b: g.n });
+  return tr('goal.keep', { n: goalAsset(g).name, h: Math.round(goalAsset(g).hp), m: g.min });
 }
 
 /* ============================ AUDIO ============================ */
@@ -495,9 +528,15 @@ function showTutEnd(win) {
     (win ? '<button class="big go" data-a="camp">' + tr('tt.end.go') + '</button><button class="big" data-a="again">' + tr('tt.again') + '</button>' : '<button class="big go" data-a="again">' + tr('tt.again') + '</button><button class="big" data-a="camp">' + tr('tt.end.go') + '</button>') + '<button class="big" data-a="menu">' + tr('back.menu') + '</button>');
   $('[data-a=camp]', o).onclick = showLevels; $('[data-a=again]', o).onclick = startTutorial; $('[data-a=menu]', o).onclick = showMenu;
 }
+function ttyType(d) {   // teletipo: el texto se va escribiendo, con un clic por tramo
+  const full = d.textContent; d.dataset.full = full; const walker = [], w = document.createTreeWalker(d, NodeFilter.SHOW_TEXT); let n; while ((n = w.nextNode())) walker.push([n, n.nodeValue]);
+  const total = full.length; let shown = 0; walker.forEach(x => x[0].nodeValue = '');
+  const iv = setInterval(() => { shown = Math.min(total, shown + 3); let left = shown; for (const [node, txt] of walker) { const k = Math.max(0, Math.min(txt.length, left)); node.nodeValue = txt.slice(0, k); left -= txt.length; } if (shown % 12 === 0) SND.tone(1900, .02, 'square', .012, 0, 'tty'); if (shown >= total || !d.isConnected) clearInterval(iv); }, 28);
+}
 function toast(html, cls, ms) {
   const box = $('#toasts'); if (!box) return;
   const d = document.createElement('div'); d.className = cls || ''; d.innerHTML = html; box.appendChild(d);
+  if (cls === 'hist' && ERA && ERA.skin) ttyType(d);
   while (box.children.length > 3) box.removeChild(box.firstChild);
   setTimeout(() => d.remove(), ms || 3800);
 }
@@ -557,6 +596,7 @@ function refreshTop() {
   sn.classList.toggle('hot', G.phase === 'ops' && !!nw && nw.t - G.t < 6);
   $('#s-cred').textContent = Math.floor(G.credits);
   { const wx = $('#wx'); if (G.lv.weather !== 'clear') { wx.classList.remove('hidden'); wx.textContent = tr('wx.' + G.lv.weather); } else wx.classList.add('hidden');
+    { const gl = $('#goal'); if (G.goal && G.phase === 'ops') { gl.classList.remove('hidden'); gl.textContent = goalText(); gl.classList.toggle('bad', goalProgress() < 1 && G.goal.t === 'keep'); } else gl.classList.add('hidden'); }
     const od = $('#ord'); if (G.order) { od.classList.remove('hidden'); od.textContent = tr('ev.orderChip', { n: G.order.asset.name, t: mmss(Math.max(0, G.order.until - G.t)) }); } else od.classList.add('hidden'); }
   const ig = integrity(), b = $('#s-integ');
   b.style.width = ig + '%'; b.style.background = ig > 65 ? C.green : ig > 40 ? C.amber : C.red;
@@ -773,7 +813,7 @@ function placeUnit(D, x, y) {
   if (!validPlace(x, y, D)) { log(D.naval ? tr('log.badPosSea') : tr('log.badPos'), 'warn'); return false; }
   G.credits -= cost; G.stats.spentCredits += cost;
   const n = G.units.filter(q => q.def === D).length + 1;
-  const u = { id: ++G.id, def: D, x, y, ammo: Math.round(D.ammo * (1 + .12 * U('ammo'))), max: Math.round(D.ammo * (1 + .12 * U('ammo'))), cool: .8, roe: 'free', n, name: D.short + '-' + n, emit: true, paid: cost };
+  const u = { id: ++G.id, def: D, x, y, ammo: Math.round(D.ammo * (1 + .12 * U('ammo')) * (G.lv.lim || 1)), max: Math.round(D.ammo * (1 + .12 * U('ammo')) * (G.lv.lim || 1)), cool: .8, roe: 'free', n, name: D.short + '-' + n, emit: true, paid: cost };
   G.units.push(u); log(tr('log.placed', { n: u.name }), 'good');
   if (G.n === 1 && !G.tut && !UI.hintShown.placed && G.phase === 'prep') {
     UI.hintShown.placed = 1;
@@ -884,6 +924,7 @@ function spawnThreat(kind, s, wave, ft, ev) {
 function fx(x, y, col, size, dur) { G.fx.push({ x, y, col, size, dur: dur || .6, t: 0 }); }
 function killThreat(t, by) {
   t.alive = false; G.credits += t.D.bounty; G.stats.kills++; G.stats.value += t.D.val;
+  { const ac = G.air.find(q => q.label === by); if (ac) { G.stats.airKills = (G.stats.airKills || 0) + 1; ac.kills = (ac.kills || 0) + 1; } }
   { const kk = t.kind === 'decoy' ? 'drone' : t.kind; G.stats.killKind[kk] = (G.stats.killKind[kk] || 0) + 1; }
   const st = G.stats; st.streak++; st.bestStreak = Math.max(st.bestStreak, st.streak);
   if (st.streak === 5 || st.streak === 10 || st.streak === 20 || st.streak === 35) { toast(tr('ms.streak', { n: st.streak }), 'gold'); SND.chime(); }
@@ -980,7 +1021,7 @@ function flyTo(a, x, y, dt) {
 }
 function loseAir(a, why) {
   G.air.splice(G.air.indexOf(a), 1); G.stats.airLost++;
-  fx(a.x, a.y, C.red, 24, .8); SND.boom(); log(tr('log.airLost', { a: a.label, why }), 'bad');
+  fx(a.x, a.y, C.red, 24, .8); SND.boom(); log(tr('log.airLost', { a: an(a), why }), 'bad'); a.dead = true;
   if (G.sel && G.sel.ref === a) hidePanel();
 }
 function startRTB(a) { a.state = 'rtb'; a.mission = null; }
@@ -1014,13 +1055,13 @@ function updateAir(a, dt) {
       const p = strikeP(D, m.site); G.stats.strikes++;
       if (Math.random() < p) {
         VO.say('site', null, false, 5000); m.site.alive = false; G.stats.sitesKilled++; if (G.waveIdx <= 2) G.stats.earlySite = true; G.craters.push({ x: m.site.x, y: m.site.y }); FXS.hold = Math.max(FXS.hold, .1); fx(m.site.x, m.site.y, C.amber, 40, 1.2); SND.impact(); G.credits += 60; floatTxt(m.site.x, m.site.y - 20, '+60', C.amber);
-        log(tr('log.siteKilled', { s: m.site.name, a: a.label }), 'good');
+        log(tr('log.siteKilled', { s: m.site.name, a: an(a) }), 'good');
         const dropped = G.pending.filter(q => q.site === m.site).length; G.pending = G.pending.filter(q => q.site !== m.site);
         if (dropped) log(tr('log.cancelled', { n: dropped }), 'good');
         if (G.sel && G.sel.ref === m.site) hidePanel();
         startRTB(a);
       } else {
-        log(tr('log.strikeFail', { a: a.label, s: m.site.name }), 'warn');
+        log(tr('log.strikeFail', { a: an(a), s: m.site.name }), 'warn');
         if (Math.random() < .35) { loseAir(a, tr('why.strike')); return; }
         startRTB(a);
       }
@@ -1151,12 +1192,14 @@ function step(dt) {
   G.threats = G.threats.filter(t => t.alive);
   for (let i = G.fx.length - 1; i >= 0; i--) { G.fx[i].t += dt; if (G.fx[i].t > G.fx[i].dur) G.fx.splice(i, 1); }
   for (const f of G.floats) f.t += dt; G.floats = G.floats.filter(f => f.t < 1.1);
-  resolveWaves();
+  resolveWaves(); goalTick(dt);
   // fin de nivel
   const ig = integrity();
   if (!G.over && (capital().hp <= 0 || ig < 25)) endLevel(false);
+  else if (!G.over && G.goalFail) endLevel(false);
   else if (!G.over && G.waveIdx >= G.lv.waves.length && !G.pending.length && !G.threats.length) {
-    G.endTimer += dt; if (G.endTimer > 1.5) endLevel(true);
+    G.endTimer += dt;
+    if (G.endTimer > 1.5) { if (G.goal && G.goal.t !== 'keep' && goalProgress() < 1) G.goalFail = G.goal.t; endLevel(!G.goalFail); }
   }
 }
 
@@ -1225,7 +1268,7 @@ function renderPanel() {
     if (r.type === 'airbase') {
       const here = G.air.filter(q => q.home === r);
       h += '<div class="row"><span>' + tr('p.hangar') + '</span><span>' + here.length + '/' + baseCap() + '</span></div><div class="row"><span>' + tr('p.frontDist') + '</span><span>' + fwdDist(r) + '</span></div>';
-      h += here.map(q => '<div class="row sm"><span>' + q.label + '</span><span>' + airStateTxt(q) + '</span></div>').join('');
+      h += here.map(q => '<div class="row sm"><span>' + an(q) + (q.kills ? ' ' + '✦'.repeat(Math.min(q.kills, 6)) : '') + '</span><span>' + airStateTxt(q) + '</span></div>').join('');
     }
     if (r.radar) {
       h += '<div class="row"><span>' + tr('p.radarR', { r: r.radar }) + '</span><span>' + emitTxt(r) + '</span></div>';
@@ -1420,18 +1463,19 @@ function renderBG() {
   bg.width = cv.width; bg.height = cv.height;
   const c = bg.getContext('2d');
   c.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+  const SK = ERA && ERA.skin;
   c.fillStyle = '#04070a'; c.fillRect(0, 0, view.w, view.h);
   c.save(); c.translate(view.ox, view.oy); c.scale(view.s, view.s);
-  const g = c.createLinearGradient(0, 0, 0, WH); g.addColorStop(0, '#0b1a27'); g.addColorStop(1, '#09141d');
+  const g = c.createLinearGradient(0, 0, 0, WH); g.addColorStop(0, SK ? SK.sea[0] : '#0b1a27'); g.addColorStop(1, SK ? SK.sea[1] : '#09141d');
   c.fillStyle = g; c.fillRect(0, 0, WW, WH);
   c.save(); c.beginPath(); c.rect(0, 0, WW, WH); c.clip();
   if (MAP) {
     const T = MAP.T, fnt = (11 / view.s) + 'px ui-monospace,Consolas,monospace';
-    c.lineWidth = 1 / view.s; c.strokeStyle = 'rgba(79,224,232,.08)'; c.fillStyle = 'rgba(140,180,205,.5)'; c.font = fnt; c.textAlign = 'left';
+    c.lineWidth = 1 / view.s; c.strokeStyle = SK ? SK.grid : 'rgba(79,224,232,.08)'; c.fillStyle = SK ? SK.txt : 'rgba(140,180,205,.5)'; c.font = fnt; c.textAlign = 'left';
     const latLo = T.latC - WH / 2 / T.ky, latHi = T.latC + WH / 2 / T.ky;
     for (let la = Math.ceil(latLo / 2) * 2; la <= latHi; la += 2) { const y = MAP.proj(la, 0)[1]; c.beginPath(); c.moveTo(0, y); c.lineTo(WW, y); c.stroke(); c.fillText(Math.abs(la) + '°' + (la < 0 ? 'S' : 'N'), 4 / view.s, y - 3 / view.s); }
     for (let lo = Math.ceil((T.lonC - T.lonSpan / 2) / 2) * 2; lo <= T.lonC + T.lonSpan / 2; lo += 2) { const x = MAP.proj(0, lo)[0]; c.beginPath(); c.moveTo(x, 0); c.lineTo(x, WH); c.stroke(); c.fillText(Math.abs(lo) + '°' + (lo < 0 ? 'W' : 'E'), x + 3 / view.s, 12 / view.s); }
-    const SIDE = { f: ['#142630', 'rgba(62,166,255,.65)'], h: ['#271a1d', 'rgba(255,90,90,.5)'], n: ['#161e24', 'rgba(140,160,175,.3)'] };
+    const SIDE = SK ? SK.land : { f: ['#142630', 'rgba(62,166,255,.65)'], h: ['#271a1d', 'rgba(255,90,90,.5)'], n: ['#161e24', 'rgba(140,160,175,.3)'] };
     for (const co of MAP.countries) {
       const [fill, stroke] = SIDE[co.s]; c.fillStyle = fill; c.strokeStyle = stroke; c.lineWidth = 1.4 / view.s; c.lineJoin = 'round';
       for (const r of co.rings) { polyPath(c, r); c.fill(); c.stroke(); }
@@ -1449,6 +1493,11 @@ function renderBG() {
   c.restore();
   c.strokeStyle = 'rgba(120,160,190,.35)'; c.lineWidth = 1.5 / view.s; c.strokeRect(0, 0, WW, WH);
   c.restore();
+  if (SK) {   // viñeta + líneas de barrido de pantalla antigua
+    const vg = c.createRadialGradient(view.w / 2, view.h / 2, Math.min(view.w, view.h) * .35, view.w / 2, view.h / 2, Math.max(view.w, view.h) * .75); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,' + (SK.vig || .4) + ')');
+    c.fillStyle = vg; c.fillRect(0, 0, view.w, view.h);
+    c.fillStyle = 'rgba(0,0,0,.14)'; for (let y = 0; y < view.h; y += 3) c.fillRect(0, y, view.w, 1);
+  }
 }
 function sym(x, y, fn) { ctx.save(); ctx.translate(x, y); ctx.scale(1 / view.s, 1 / view.s); fn(); ctx.restore(); }
 function label(txt, x, y, col, size) {
@@ -2173,13 +2222,15 @@ function histLevel(cfg) {
   if (m >= 19) events.push({ t: 205, kind: 'jam' });
   events.sort((a, b) => a.t - b.t);
   return { diff: SET.diff, weather: ms.wx, evasive: 0, events, rule: null, endless: false, pmMul: 1, n: m, theater: 0, tobj, get name() { return ht(ms.name); }, waves, spawnWin: 236, nSites: ms.sites.length, siteList: ms.sites,
-    notes: ms.notes, credits: Math.round(ms.cr * DF.cred), income: ms.inc, siteDef: ms.def, fleet: Object.assign({}, ms.fleet), hist: { camp: cfg.camp, m } };
+    notes: ms.notes, goal: ms.goal || null, lim: ms.lim || 1, credits: Math.round(ms.cr * DF.cred), income: ms.inc, siteDef: ms.def, fleet: Object.assign({}, ms.fleet), hist: { camp: cfg.camp, m } };
 }
 function histIntro() {
   const C = HIST[G.hist.camp], ms = C.missions[G.hist.m - 1];
   banner(hdate(ms.date) + ' · ' + ht(ms.place).toUpperCase() + '<small>' + ht(ms.name) + '</small>');
   setHint('<b>' + tr('h.obj') + '</b> ' + ht(ms.obj), 'plan');
 }
+/* Foto opcional de una ficha: hist/img/<campaña>_<ficha>.jpg (+ crédito en C.photos[ficha]). Si el archivo no existe la imagen se descarta sin dejar hueco. */
+const histImg = (C, k) => { const cr = (window.C2_PHOTOS && C2_PHOTOS[C.id] && C2_PHOTOS[C.id][k]) || (C.photos && C.photos[k]); return cr ? '<figure class="himg" hidden><img alt="" src="hist/img/' + C.id + '_' + k + '.jpg" onload="this.parentNode.hidden=false" onerror="this.parentNode.remove()"><figcaption>' + cr + '</figcaption></figure>' : ''; };
 const histEraName = (C, k) => ht(C.era.str[k]) || k;
 function drawMiniH(cv2, C, ms) {   // mapa del briefing: costas, frente, activos propios (azul) y aeródromos hostiles (rojo; ámbar si es santuario)
   const base = HMAPS[C.map], [latC, lonC, span] = ms.view, kx = 1000 / span, ky = kx / Math.cos(latC * Math.PI / 180);
@@ -2206,6 +2257,8 @@ function showCamp(id) {
   let nextM = 0; for (let m = 1; m <= C.missions.length; m++) if (!(h.stars[m] > 0)) { nextM = m; break; }
   let html = '<h2>' + ht(C.name) + ' · ' + C.years + '</h2><div class="hbox">' + ht(C.intro) + '</div><div class="kv"><span>' + tr('h.missions') + '</span><span class="amber">' + done + '/' + C.missions.length + '</span><span>' + tr('lv.stars') + '</span><span>' + st + '/' + C.missions.length * 3 + '</span></div>' +
     '<button class="big" data-a="arch">📖 ' + tr('h.arch') + '</button><button class="big" data-a="hupg">🛠 ' + tr('h.upg') + ' · ' + h.cp + ' ' + tr('unit.pm') + '</button>' + (Store.camp(id) ? '' : '<button class="big go" data-a="buy">🔒 ' + tr('h.buy', { p: Store.price('c2hell_camp_' + id), f: C.free }) + '</button>');
+  { const ac = Object.entries(h.aces || {}).sort((a, b) => b[1] - a[1]).slice(0, 6); if (ac.length) html += '<div class="hbox"><b>' + tr('h.aces') + '</b><br>' + ac.map(([n, k]) => '«' + n + '» ' + k + (k >= 5 ? ' ★ ' + tr('h.ace') : '')).join(' · ') + '</div>'; }
+  if (C.ribbons) html += '<div class="hbox"><b>🎖 ' + tr('h.ribbons') + '</b>' + C.ribbons.map(r => ribbonHtml(C, r, !!(h.rib || {})[r.id])).join('') + '</div>';
   C.chapters.forEach((ch, ci) => {
     html += '<div class="chap"><b>' + ht(ch.n) + '</b><small>' + ht(ch.d) + '</small></div>';
     C.missions.filter(ms => ms.ch === ci).forEach(ms => {
@@ -2229,7 +2282,7 @@ function showHistBrief(id, m) {
   for (const k in C.era.air) { const D = C.era.air[k]; if (D.unlock === m) nw.push(D.name); }
   const o = showOverlay('<h2>' + tr('h.mission', { n: m }) + ' · ' + ht(ms.name).toUpperCase() + '</h2><div class="hdate">' + hdate(ms.date) + ' · ' + ht(ms.place) + '</div><canvas id="hmini" width="520" height="300"></canvas>' +
     (first ? '<div class="hbox chapb"><b>' + ht(ch.n) + '</b> <small>' + ht(ch.d) + '</small><br>' + (m === 1 ? ht(C.intro) + '<br>' : '') + ht(ch.t) + '</div>' : '') +
-    '<div class="hbox"><b>' + tr('h.sit') + '</b><br>' + ht(ms.ctx) + '</div><div class="hbox obj"><b>' + tr('h.obj') + '</b><br>' + ht(ms.obj) + '</div>' +
+    '<div class="hbox"><b>' + tr('h.sit') + '</b><br>' + ht(ms.ctx) + '</div><div class="hbox obj"><b>' + tr('h.obj') + '</b><br>' + ht(ms.obj) + (ms.goal && ms.goal.t !== 'survive' ? '<br><b class="amber">★ ' + tr('goal.b.' + ms.goal.t, { n: ms.goal.n, m: ms.goal.min, a: ms.goal.a != null ? ht(ms.as[ms.goal.a][0]) : '' }) + '</b>' : '') + '</div>' +
     '<div class="kv"><span>' + tr('br.dur') + '</span><span>~5:00</span><span>' + tr('br.waves') + '</span><span>' + lv.waves.length + '</span><span>' + tr('br.sites') + '</span><span>' + lv.nSites + '</span><span>' + tr('br.credits') + '</span><span>' + lv.credits + '</span><span>' + tr('br.weather') + '</span><span>' + tr(lv.weather === 'clear' ? 'wx.clear' : 'wx.' + lv.weather) + '</span></div>' +
     '<div class="sub">' + tr('h.enemy') + '</div><div class="kv">' + enemy + '</div>' + (nw.length ? '<div class="unls"><div class="unl"><span class="nb">' + tr('h.newunit') + '</span><b>' + nw.join(' · ') + '</b></div></div>' : '') +
     diffSeg + '<p class="sub">' + tr('h.disc') + '</p><button class="big go" data-a="go">' + tr('h.start') + '</button><button class="big" data-a="back">' + tr('h.back') + '</button>');
@@ -2240,22 +2293,64 @@ function showHistBrief(id, m) {
 function endHist(win) {
   const s = G.stats, { camp: id, m } = G.hist, C = HIST[id], ig = Math.round(integrity()), st = win ? (ig >= 90 ? 3 : ig >= 65 ? 2 : 1) : 0, first = win && !(histGet(id).h.stars[m] > 0);
   const { p, h } = histGet(id);
+  if (win && ERA && ERA.callsigns) { h.aces = h.aces || {}; for (const q of G.air) if (q.call && q.kills) h.aces[q.call] = (h.aces[q.call] || 0) + q.kills; }
   const prevSt = h.stars[m] || 0, gain = win ? (prevSt ? 5 * Math.max(0, st - prevSt) : 10 + 10 * st) : 0; h.cp += gain;
   if (win) { h.stars[m] = Math.max(h.stars[m] || 0, st); const b = h.best[m]; if (!b || ig > b.ig) h.best[m] = { ig, time: Math.round(G.t) }; }
-  savePut(p); Net.event('hist_end', { camp: id, m, win, st, ig, t: Math.round(G.t) });
-  const d = { win, st, ig, first, id, m, gain };
+  const fresh = win ? ribbonsNew(C, h) : []; savePut(p); Net.event('hist_end', { camp: id, m, win, st, ig, t: Math.round(G.t) });
+  const top = G.air.filter(q => q.call && q.kills).sort((a, b) => b.kills - a.kills)[0], d = { win, st, ig, first, id, m, gain, why: G.goalFail, rib: fresh.map(r => r.id), top: top && { n: top.call, k: top.kills, l: top.label }, lost: G.air.filter(q => q.dead && q.call).map(q => q.call) };
   if (win) startVictory(d, () => showHistEnd(d)); else { SND.lose(); buzz(120); VO.say('lose', null, true, 500); setTimeout(() => showHistEnd(d), 900); }
+}
+/* ---- Condecoraciones de campaña: C.ribbons = [{id, name, desc, st:[[color,peso]...], c:{t,n}}]; c.t = wins|chapter|stars3|ace|all. Se evalúan sobre el progreso guardado. ---- */
+function ribbonOk(C, h, r) {
+  const w = Object.values(h.stars).filter(v => v > 0).length, c = r.c;
+  if (c.t === 'wins') return w >= c.n;
+  if (c.t === 'chapter') return C.missions.filter(ms => ms.ch < c.n).every(ms => h.stars[ms.n] > 0);
+  if (c.t === 'stars3') return Object.values(h.stars).filter(v => v >= 3).length >= c.n;
+  if (c.t === 'ace') return Object.values(h.aces || {}).some(k => k >= 5);
+  if (c.t === 'all') return w >= C.missions.length;
+  return false;
+}
+const ribbonCss = r => { const tot = r.st.reduce((a, q) => a + q[1], 0); let acc = 0; return 'linear-gradient(90deg,' + r.st.map(q => { const a = acc / tot * 100; acc += q[1]; return q[0] + ' ' + a + '% ' + acc / tot * 100 + '%'; }).join(',') + ')'; };
+const ribbonHtml = (C, r, on) => '<div class="rib' + (on ? ' on' : '') + '"><i style="background:' + ribbonCss(r) + '"></i><span><b>' + ht(r.name) + '</b><small>' + ht(r.desc) + '</small></span></div>';
+function ribbonsNew(C, h) { h.rib = h.rib || {}; const fresh = []; for (const r of C.ribbons || []) if (!h.rib[r.id] && ribbonOk(C, h, r)) { h.rib[r.id] = 1; fresh.push(r); } return fresh; }
+/* ---- Tarjeta de informe de misión (PNG 1080×1350) para compartir ---- */
+function reportCard(d) {
+  const C = HIST[d.id], ms = C.missions[d.m - 1], cv = document.createElement('canvas'); cv.width = 1080; cv.height = 1350; const c = cv.getContext('2d');
+  const sepia = !!(C.era && C.era.skin), mono = 'ui-monospace,Menlo,Consolas,"Courier New",monospace';
+  const g = c.createLinearGradient(0, 0, 0, 1350); g.addColorStop(0, sepia ? '#241d10' : '#0b1a27'); g.addColorStop(1, sepia ? '#0f0d08' : '#05080c'); c.fillStyle = g; c.fillRect(0, 0, 1080, 1350);
+  c.strokeStyle = sepia ? 'rgba(214,170,90,.5)' : 'rgba(79,224,232,.4)'; c.lineWidth = 3; c.strokeRect(36, 36, 1008, 1278);
+  const acc = sepia ? '#d9b45a' : '#4fe0e8', wrap = (txt, x, y, w, lh, max) => { const ws = txt.split(' '); let ln = '', n = 0; for (const wd of ws) { const t = ln ? ln + ' ' + wd : wd; if (c.measureText(t).width > w && ln) { c.fillText(ln, x, y); y += lh; ln = wd; if (++n >= max) return y; } else ln = t; } c.fillText(ln, x, y); return y + lh; };
+  c.textAlign = 'left'; c.fillStyle = acc; c.font = '700 40px ' + mono; c.fillText('C2 HELL · ' + ht(C.name).toUpperCase(), 80, 120);
+  c.fillStyle = '#d3e6f2'; c.font = '700 56px ' + mono; let y = wrap(tr('h.mission', { n: d.m }) + ' · ' + ht(ms.name).toUpperCase(), 80, 215, 920, 66, 3);
+  c.fillStyle = acc; c.font = '600 34px ' + mono; c.fillText(hdate(ms.date) + ' · ' + ht(ms.place), 80, y + 8);
+  c.font = '700 120px ' + mono; c.fillStyle = '#ffb020'; c.fillText('★'.repeat(d.st) + '☆'.repeat(3 - d.st), 80, y + 150);
+  c.font = '600 38px ' + mono; c.fillStyle = '#d3e6f2'; const rows = [[tr('end.integ'), d.ig + '%'], [tr('end.kills'), String(G.stats.kills)], [tr('end.airLost'), String(G.stats.airLost)]]; if (d.top) rows.push([tr('h.top'), d.top.n + ' ✦' + d.top.k]);
+  rows.forEach((r, i) => { c.fillStyle = '#7390a3'; c.fillText(r[0], 80, y + 240 + i * 58); c.fillStyle = '#d3e6f2'; c.textAlign = 'right'; c.fillText(r[1], 1000, y + 240 + i * 58); c.textAlign = 'left'; });
+  const y2 = y + 260 + rows.length * 58;
+  c.fillStyle = acc; c.font = '700 30px ' + mono; c.fillText(tr('h.real').toUpperCase(), 80, y2);
+  c.fillStyle = '#cfe3f1'; c.font = '30px Georgia,serif'; const y3 = wrap(ht(ms.out), 80, y2 + 50, 920, 42, 6);
+  c.fillStyle = acc; c.font = '700 30px ' + mono; c.fillText(tr('h.fact').toUpperCase(), 80, y3 + 30); c.fillStyle = '#cfe3f1'; c.font = '30px Georgia,serif'; wrap(ht(ms.fact), 80, y3 + 80, 920, 42, 4);
+  c.fillStyle = '#7390a3'; c.font = '26px ' + mono; c.fillText('C2 HELL · ' + '#C2HELL', 80, 1290);
+  return cv;
+}
+function shareReport(d) {
+  const cv = reportCard(d), name = 'c2hell_' + d.id + '_m' + d.m + '.png';
+  cv.toBlob(async blob => {
+    try { const f = new File([blob], name, { type: 'image/png' }); if (navigator.canShare && navigator.canShare({ files: [f] })) { await navigator.share({ files: [f], title: 'C2 HELL', text: ht(HIST[d.id].name) + ' · ' + tr('h.mission', { n: d.m }) }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  }, 'image/png');
 }
 function showHistEnd(d) {
   const s = G.stats, C = HIST[d.id], ms = C.missions[d.m - 1], U = ms.unit && C.units[ms.unit], last = d.m === C.missions.length;
   const starsH = d.win ? '<div class="stars">' + [0, 1, 2].map(i => '<span class="sx' + (i < d.st ? ' fill on' : '') + '">★</span>').join('') + '</div>' : '';
-  const card = d.win && U ? '<div class="unls"><div class="unl gold"><span class="nb">📖 ' + tr('h.card') + '</span><b>' + ht(U.name) + '</b><small>' + (U.sp && U.sp !== '—' ? ht(U.sp) + '<br>' : '') + ht(U.d) + '</small></div></div>' : '';
-  const o = showOverlay('<h2 class="stamp ' + (d.win ? 'win' : 'lose') + '">' + (d.win ? tr('end.win') : tr('end.lose')) + '</h2>' + starsH +
+  const card = d.win && U ? '<div class="unls"><div class="unl gold"><span class="nb">📖 ' + tr('h.card') + '</span><b>' + ht(U.name) + '</b><small>' + (U.sp && U.sp !== '—' ? ht(U.sp) + '<br>' : '') + ht(U.d) + '</small>' + histImg(C, ms.unit) + '</div></div>' : '';
+  const o = showOverlay('<h2 class="stamp ' + (d.win ? 'win' : 'lose') + '">' + (d.win ? tr('end.win') : tr('end.lose')) + '</h2>' + (d.why ? '<div class="hbox bad"><b>' + tr('goal.fail.' + d.why) + '</b></div>' : '') + starsH +
     '<div class="kv"><span>' + tr('end.integ') + '</span><span>' + d.ig + '%</span><span>' + tr('end.kills') + '</span><span>' + s.kills + '</span><span>' + tr('end.leaked') + '</span><span>' + s.leaked + '</span><span>' + tr('end.airLost') + '</span><span>' + s.airLost + '</span><span>' + tr('pz.time') + '</span><span>' + mmss(G.t) + '</span></div>' +
-    (d.gain ? '<div class="hbox cpg"><b>+' + d.gain + ' ' + tr('h.cp') + '</b></div>' : '') + '<div class="hbox"><b>' + tr('h.real') + ' · ' + hdate(ms.date) + '</b><br>' + ht(ms.out) + '</div><div class="hbox fact"><b>' + tr('h.fact') + '</b><br>' + ht(ms.fact) + '</div>' + card +
-    '<div class="endbtns">' + (d.win ? '<button class="big go" data-a="next">' + (last ? tr('h.epi') : tr('h.next')) + '</button>' : '') + '<button class="big' + (d.win ? '' : ' go') + '" data-a="retry">' + tr('end.retry') + '</button><button class="big" data-a="camp">' + tr('h.back') + '</button></div>');
+    (d.gain ? '<div class="hbox cpg"><b>+' + d.gain + ' ' + tr('h.cp') + '</b></div>' : '') + (d.rib && d.rib.length ? '<div class="hbox gold"><b>🎖 ' + tr('h.ribNew') + '</b>' + d.rib.map(id => ribbonHtml(C, C.ribbons.find(r => r.id === id), true)).join('') + '</div>' : '') + (d.top ? '<div class="hbox"><b>' + tr('h.top') + '</b><br>' + d.top.l + ' «' + d.top.n + '» · ' + '✦'.repeat(Math.min(d.top.k, 10)) + ' ' + d.top.k + (d.lost.length ? '<br><span class="dim">' + tr('h.lost') + ': ' + d.lost.join(', ') + '</span>' : '') + '</div>' : '') + '<div class="hbox"><b>' + tr('h.real') + ' · ' + hdate(ms.date) + '</b><br>' + ht(ms.out) + '</div><div class="hbox fact"><b>' + tr('h.fact') + '</b><br>' + ht(ms.fact) + '</div>' + card +
+    '<div class="endbtns">' + (d.win ? '<button class="big" data-a="share">📤 ' + tr('h.share') + '</button>' : '') + (d.win ? '<button class="big go" data-a="next">' + (last ? tr('h.epi') : tr('h.next')) + '</button>' : '') + '<button class="big' + (d.win ? '' : ' go') + '" data-a="retry">' + tr('end.retry') + '</button><button class="big" data-a="camp">' + tr('h.back') + '</button></div>');
   const q = a => $('[data-a=' + a + ']', o);
   if (q('next')) q('next').onclick = () => last ? showHistEpi(d.id) : showHistBrief(d.id, d.m + 1);
+  if (q('share')) q('share').onclick = () => shareReport(d);
   q('retry').onclick = () => newGame(d.m, G.cfg); q('camp').onclick = () => showCamp(d.id);
 }
 function showHistEpi(id) {
@@ -2272,11 +2367,12 @@ function showArchive(id) {
       : '<div class="arc lk"><b>' + hdate(ms.date) + '</b> · ???</div>';
   });
   html += '<div class="sub">' + tr('h.cards') + '</div>';
-  const seen = new Set(); C.missions.forEach(ms => { if (ms.unit && !seen.has(ms.unit)) { seen.add(ms.unit); const U = C.units[ms.unit]; html += got(ms.n) && U ? '<details class="arc"><summary><b>' + ht(U.name) + '</b></summary><p>' + (U.sp && U.sp !== '—' ? '<small>' + ht(U.sp) + '</small><br>' : '') + ht(U.d) + '</p></details>' : '<div class="arc lk">' + tr('h.cardLocked') + '</div>'; } });
+  const seen = new Set(); C.missions.forEach(ms => { if (ms.unit && !seen.has(ms.unit)) { seen.add(ms.unit); const U = C.units[ms.unit]; html += got(ms.n) && U ? '<details class="arc"><summary><b>' + ht(U.name) + '</b></summary><p>' + (U.sp && U.sp !== '—' ? '<small>' + ht(U.sp) + '</small><br>' : '') + ht(U.d) + '</p>' + histImg(C, ms.unit) + '</details>' : '<div class="arc lk">' + tr('h.cardLocked') + '</div>'; } });
   html += '<div class="sub">' + tr('h.gloss') + '</div>' + C.gloss.map(g => '<details class="arc"><summary>' + ht(g[0]) + '</summary><p>' + ht(g[1]) + '</p></details>').join('') + '<button class="big" data-a="back">' + tr('back') + '</button>';
   const o = showOverlay(html); $('[data-a=back]', o).onclick = () => showCamp(id);
 }
 function showMenu() {
+  if (!(G && !G.over && G.hist) && ERA) applyEra(null);   // al salir de una misión histórica se restaura el orden de batalla y la piel moderna
   if (G) { G.speed = 0; }
   const o = showOverlay('<h1 class="title">C2<em>HELL</em></h1><div class="tag">AIR DEFENSE COMMAND &amp; CONTROL — LITE SIM</div>' +
     '<button class="big go" data-a="camp">' + tr('m.camp') + '</button><button class="big" data-a="hist">🎖 ' + tr('m.hist') + '</button><button class="big" data-a="modes">' + tr('m.modes') + '</button><button class="big" data-a="ach">' + tr('m.ach', { a: Object.keys(progress().ach).length, b: ACH.length }) + '</button><button class="big" data-a="help">' + tr('m.help') + '</button><button class="big" data-a="set">' + tr('m.set') + '</button>' + (Store.on() && !Store.full() ? '<button class="big store" data-a="store">🔓 ' + tr('st.title') + '</button>' : '') + (G && !G.over && !G.demo ? '<button class="big" data-a="resume">' + tr('m.resume') + '</button>' : ''));
@@ -2678,6 +2774,6 @@ function init() {
   requestAnimationFrame(t => { last = t; frame(t); });
   const m = /[?&]level=(\d+)/.exec(location.search); if (m) { $('#overlay').classList.add('hidden'); newGame(+m[1]); }
 }
-window.__C2 = { showUpgrades, histGet, savePut, HIST, histLevel, showHist, showCamp, showHistBrief, showArchive, endHist, applyEra, startTutorial, TSTEPS, coachNext, coachEnd, Store, showStore, Net, exportSave, importSave, showSaveTools, showBoard, RP, VO, SND, startReplay, endReplay, applyA11y, musicLevel, SPECIALS, dailyConfig, endlessConfig, buildModeLevel, showModes, showModeBrief, endMode, endlessWave, theaterOf, CAMP_N, THEATERS, DIFF, WEATHER, WX, emRange, runEvent, spawnWave, MEDALS, ACH, COS, checkAch, effLife, medalsFor, endLevel, showEnd, showLevels, showAch, showCosmetics, progress, I18N, tr, applyLang, SET, restockAll, showPause, showSettings, tutTick, TUT, get G() { return G; }, get MAP() { return MAP; }, newGame, step, setSpeed, startOps, SAM, AIR, THREAT, makeLevel, placeUnit, launchMission, missionStation, firstReady, bestReady, inPoly, onLand, toggleEmit, emitters, isEmitting, airbases, validPlace, resize, view, UI, select, buildDock, refreshDock };
+window.__C2 = { reportCard, showUpgrades, histGet, savePut, HIST, histLevel, showHist, showCamp, showHistBrief, showArchive, endHist, applyEra, startTutorial, TSTEPS, coachNext, coachEnd, Store, showStore, Net, exportSave, importSave, showSaveTools, showBoard, RP, VO, SND, startReplay, endReplay, applyA11y, musicLevel, SPECIALS, dailyConfig, endlessConfig, buildModeLevel, showModes, showModeBrief, endMode, endlessWave, theaterOf, CAMP_N, THEATERS, DIFF, WEATHER, WX, emRange, runEvent, spawnWave, MEDALS, ACH, COS, checkAch, effLife, medalsFor, endLevel, showEnd, showLevels, showAch, showCosmetics, progress, I18N, tr, applyLang, SET, restockAll, showPause, showSettings, tutTick, TUT, get G() { return G; }, get MAP() { return MAP; }, newGame, step, setSpeed, startOps, SAM, AIR, THREAT, makeLevel, placeUnit, launchMission, missionStation, firstReady, bestReady, inPoly, onLand, toggleEmit, emitters, isEmitting, airbases, validPlace, resize, view, UI, select, buildDock, refreshDock };
 init();
 })();

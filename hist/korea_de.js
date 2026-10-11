@@ -229,3 +229,10 @@ C2_HTR('korea', 'de', {
 "units|yak18|d":"Kleine Schulflugzeuge und Doppeldecker bei nächtlichen Einsätzen. Sie richteten wenig Schaden an, zwangen die UNO aber, Radare, Scheinwerfer und Nachtjäger ständig in Alarmbereitschaft zu halten.",
 "units|dmz|d":"Die befestigte Grenze, die der Waffenstillstand hinterließ. Es gibt keinen Friedensvertrag: Technisch befinden sich die beiden Koreas weiterhin im Krieg."
 });
+C2_HTR('korea', 'de', {
+"ribbons|0|name":"Korea-Dienstmedaille","ribbons|0|desc":"US-Auszeichnung für den Dienst im koreanischen Kriegsschauplatz zwischen 1950 und 1954. Gewinne deine erste Mission.",
+"ribbons|1|name":"Dienstmedaille der Vereinten Nationen","ribbons|1|desc":"Für alle, die in Korea unter UN-Kommando dienten. Schließe die Kapitel I und II ab.",
+"ribbons|2|name":"Air Medal","ribbons|2|desc":"Würdigt verdienstvolle Leistungen im Flug. Bringe einen deiner Piloten auf 5 Abschüsse (Ass).",
+"ribbons|3|name":"Distinguished Flying Cross","ribbons|3|desc":"Für Heldentum oder außergewöhnliche Leistungen im Flug. Erreiche 3 Sterne in 8 Missionen.",
+"ribbons|4|name":"Presidential Unit Citation","ribbons|4|desc":"Für Einheiten mit außergewöhnlichem Heldenmut im Kampf. Schließe alle 24 Missionen ab."
+});
