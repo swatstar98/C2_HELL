@@ -83,3 +83,9 @@ La fuente va incrustada en base64 en `style.css` (funciona desde `file://` y en 
 - **PWA** (`manifest.webmanifest`, `sw.js`, iconos) y **Capacitor 8** (Android targetSdk 36, iOS con SPM) (`capacitor.config.json`, `tools/build_www.js` → `www/`). Las carpetas `android/` e `ios/` se regeneran con `npm run native:add:*` y `tools/patch_native.js` las parchea (vertical, VIBRATE, notch; iOS solo vertical y sin barra de estado).
 - `buzz()` usa `Capacitor.Plugins.Haptics` si existe (iOS) y `navigator.vibrate` si no. `nativeInit()` oculta la barra de estado, gestiona el botón atrás y pausa en segundo plano. `SND.init()` reanuda el AudioContext y arranca un `<audio>` silencioso (truco del interruptor de silencio de iOS).
 - **Red opcional** (`Net`, `showSaveTools`, `showBoard`): copia de seguridad por código `C2H1.`, y con `config.js` + `server/server.js`: marcadores, telemetría anónima (opt‑in) y guardado en la nube por código.
+
+## Fase E — Tienda
+- Campaña de 12 niveles gratis; de pago único: **Juego completo** (`c2hell_full`: teatros extra, Sin fin, Reto diario, Misiones especiales) o **pack por teatro** (`c2hell_pack_<id>`, 4 niveles). Sin anuncios.
+- `Store` (game.js) gestiona derechos (`save.iap`, fuera de `SAVE_KEYS`), precios y compra; `unlocked(n)`, `showBrief`, `newGame` y `showModes` consultan `Store.theater(k)` / `Store.modes()`.
+- Pasarela por contrato `window.C2_BILLING`; `initBilling()` la rellena con `@capgo/native-purchases` en nativo. Modos `off/sim/live/nobilling` (ver README_DELIVERY.md).
+- El primer nivel de un pack comprado se abre sin exigir los anteriores; el resto del pack sigue la progresión por estrellas.

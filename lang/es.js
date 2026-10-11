@@ -605,5 +605,21 @@ I18N.add('es', {
   "sv.upOk": "Subido. Tu código de nube: {c}",
   "sv.netErr": "Sin conexión con el servidor",
   "board.title": "MARCADORES ONLINE",
-  "board.empty": "Aún no hay puntuaciones"
+  "board.empty": "Aún no hay puntuaciones",
+  "st.title": "TIENDA",
+  "st.intro": "La campaña de 12 niveles es gratis. El resto se desbloquea con un pago único: sin anuncios ni suscripciones.",
+  "st.full.n": "JUEGO COMPLETO",
+  "st.full.d": "Los 4 teatros extra (16 niveles), modo Sin fin, Reto diario, Misiones especiales y las futuras ampliaciones.",
+  "st.pack.d": "4 niveles nuevos: {t}.",
+  "st.owned": "COMPRADO",
+  "st.buy": "DESBLOQUEAR · {p}",
+  "st.unlockFull": "DESBLOQUEAR JUEGO COMPLETO · {p}",
+  "st.modesLock": "Los modos de juego forman parte del juego completo.",
+  "st.restore": "RESTAURAR COMPRAS",
+  "st.restoreOk": "Compras restauradas",
+  "st.restoreNone": "No se han encontrado compras",
+  "st.thanks": "¡Gracias por apoyar el juego!",
+  "st.sim": "[MODO PRUEBA] Compra simulada: no se cobra nada.",
+  "st.err": "No se pudo completar la compra",
+  "st.noBilling": "La tienda no está disponible en esta versión"
 });

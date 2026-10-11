@@ -212,6 +212,7 @@ function buzz(ms) {   // en la app nativa se usa el plugin Haptics de Capacitor 
 
 function newGame(n, cfg) {
   cfg = cfg || null;
+  if (cfg ? !Store.modes() : !Store.theater(theaterOf(n))) return showStore(showMenu);
   const lv = cfg ? buildModeLevel(cfg) : makeLevel(n); n = lv.n;
   const up = progress().up || {};
   loadTheater(lv.theater, computeH()); resize();
@@ -1628,7 +1629,68 @@ function draw() {
 /* ============================ PANTALLAS ============================ */
 function showOverlay(html) { const o = $('#overlay'); o.innerHTML = '<div class="screen"><div class="box">' + html + '</div></div>'; o.classList.remove('hidden'); return o; }
 function progress() { const s = saveGet(); s.stars = s.stars || {}; s.up = s.up || {}; s.cp = s.cp || 0; s.ach = s.ach || {}; s.life = s.life || {}; s.medals = s.medals || {}; s.rec = s.rec || {}; return s; }
-function unlocked(n) { return n === 1 || (progress().stars[n - 1] > 0) || /[?&]unlock/.test(location.search); }
+function unlocked(n) {
+  if (/[?&]unlock/.test(location.search)) return true;
+  if (!Store.theater(theaterOf(n))) return false;                 // teatro de pago sin comprar
+  if (n > 12 && (n - 13) % 4 === 0) return true;                  // el primer nivel de un pack comprado se abre directamente
+  return n === 1 || progress().stars[n - 1] > 0;
+}
+/* ============================ TIENDA: juego completo + packs de teatro ============================ */
+// Modelo: campaña de 12 niveles (3 teatros) GRATIS. De pago: «Juego completo» (todos los teatros + Sin fin + Reto diario + Misiones especiales)
+// o un pack por teatro extra (4 niveles). Pago único, sin anuncios ni suscripciones.
+// Estados: 'off' (config.store.enabled=false: todo desbloqueado, p. ej. la web), 'live' (hay window.C2_BILLING), 'sim' (compra simulada, SOLO pruebas:
+// ?store=sim o config.store.sim) y 'nobilling' (tienda activa pero sin pasarela: no se puede comprar; falla cerrado).
+// Contrato de window.C2_BILLING: { purchase(id)->Promise<bool>, restore()->Promise<string[]>, price(id)->string|undefined }.
+const FULL_ID = 'c2hell_full', packId = k => 'c2hell_pack_' + THEATERS[k].id;
+const Store = {
+  cfg() { return (window.C2_CONFIG || {}).store || {}; },
+  mode() {
+    if (/[?&]store=sim/.test(location.search)) return 'sim';
+    if (!this.cfg().enabled) return 'off';
+    return window.C2_BILLING ? 'live' : this.cfg().sim ? 'sim' : 'nobilling';
+  },
+  on() { return this.mode() !== 'off'; },
+  ent() { const e = saveGet().iap || {}; return { full: !!e.full, packs: e.packs || {} }; },
+  full() { return !this.on() || this.ent().full; },
+  modes() { return this.full() || /[?&]unlock/.test(location.search); },
+  theater(k) { return k < BASE_T || this.full() || !!this.ent().packs[THEATERS[k] && THEATERS[k].id] || /[?&]unlock/.test(location.search); },
+  price(id) {
+    let p; try { p = window.C2_BILLING && window.C2_BILLING.price && window.C2_BILLING.price(id); } catch (e) { /* sin precio nativo */ }
+    return p || (this.cfg().prices || {})[id] || (id === FULL_ID ? '2,99 €' : '0,99 €');
+  },
+  grant(id) {
+    const s = saveGet(), e = s.iap = s.iap || { full: 0, packs: {} }; e.packs = e.packs || {};
+    if (id === FULL_ID) e.full = 1; else if (id.indexOf('c2hell_pack_') === 0) e.packs[id.slice(12)] = 1;
+    savePut(s);
+  },
+  buy(id) {
+    const m = this.mode();
+    if (m === 'sim') { this.grant(id); return Promise.resolve(true); }
+    if (m !== 'live') return Promise.reject(new Error('nobilling'));
+    return Promise.resolve(window.C2_BILLING.purchase(id)).then(ok => { if (ok) this.grant(id); return !!ok; });
+  },
+  restore() {
+    if (this.mode() !== 'live') return Promise.resolve(this.mode() === 'sim' ? -1 : 0);
+    return Promise.resolve(window.C2_BILLING.restore()).then(ids => { (ids || []).forEach(i => this.grant(i)); return (ids || []).length; });
+  }
+};
+/* Pasarela nativa (Google Play Billing / StoreKit) mediante el plugin @capgo/native-purchases, solo en la app Capacitor y solo si la tienda está activada.
+ * NO PROBADO en dispositivo real: sin Play Console / App Store Connect configurados no se puede verificar desde aquí. Los productos (c2hell_full,
+ * c2hell_pack_<teatro>) deben existir como «producto único / no consumible» en ambas tiendas. Las compras se comprueban en el cliente (sin servidor). */
+function initBilling() {
+  try {
+    const cap = window.Capacitor, NP = cap && cap.isNativePlatform && cap.isNativePlatform() && cap.Plugins && cap.Plugins.NativePurchases;
+    if (!NP || !(Store.cfg().enabled)) return;
+    const ids = [FULL_ID].concat(THEATERS.map((t, k) => k >= BASE_T ? packId(k) : null).filter(Boolean)), prices = {};
+    NP.getProducts({ productIdentifiers: ids, productType: 'inapp' }).then(r => { ((r && r.products) || []).forEach(p => { prices[p.identifier] = p.priceString; }); }).catch(() => { /* se usan los precios de config.js */ });
+    window.C2_BILLING = {
+      price: id => prices[id],
+      purchase: id => NP.purchaseProduct({ productIdentifier: id, productType: 'inapp', quantity: 1 }).then(() => true, e => { if (e && /cancel/i.test(String(e.message || e.code || e))) return false; throw e; }),
+      restore: () => Promise.resolve(NP.restorePurchases ? NP.restorePurchases() : null).catch(() => { /* iOS sincroniza con la tienda; se sigue con getPurchases */ })
+        .then(() => NP.getPurchases({ productType: 'inapp' })).then(r => ((r && r.purchases) || []).filter(p => p.isActive !== false).map(p => p.productIdentifier))
+    };
+  } catch (e) { /* sin compras nativas: la tienda queda en modo «nobilling» */ }
+}
 /* ============================ META: medallas, logros, récords, cosmética ============================ */
 const SURG = .5, EAGLE = .55;   // umbrales de las medallas «Cirujano» (ratio coste) y «Ojo de águila» (detección temprana)
 const MEDALS = [
@@ -1817,15 +1879,17 @@ function showModeBrief(cfg) {
 function showModes() {
   const p = progress(), e = p.endless || { top: [] }, d = p.daily || { days: {}, streak: 0 }, today = todayStr(), dd = d.days[today], sp = p.special || {};
   const dc = dailyConfig(today), liveStreak = d.last === today || d.last === dayBefore(today) ? d.streak || 0 : 0;
-  const card = (m, cls, t, desc, meta) => '<button class="big mcard ' + cls + '" data-m="' + m + '"><b>' + t + '</b><small>' + desc + '</small><em>' + meta + '</em></button>';
-  let h = '<h2>' + tr('md.title') + '</h2>' +
+  const lockM = !Store.modes();
+  const card = (m, cls, t, desc, meta) => '<button class="big mcard ' + (lockM ? '' : cls) + (lockM ? ' lk' : '') + '" data-m="' + m + '"><b>' + (lockM ? '🔒 ' : '') + t + '</b><small>' + desc + '</small><em>' + meta + '</em></button>';
+  let h = '<h2>' + tr('md.title') + '</h2>' + (lockM ? '<p class="sub">' + tr('st.modesLock') + '</p><button class="big go" data-a="store">' + tr('st.unlockFull', { p: Store.price(FULL_ID) }) + '</button>' : '') +
     card('endless', 'go', tr('md.endless'), tr('md.endless.d'), e.top.length ? tr('md.best') + ': ' + e.top[0].s + ' · ' + tr('md.waveN', { n: e.top[0].w }) : tr('md.none')) +
     card('daily', '', tr('md.daily') + ' · ' + today, tr('md.daily.d'), (dd && dd.win ? '✔ ' + tr('md.done') + ' · ' + dd.score + ' pts' : tr('md.todo')) + ' · ' + tr('md.streak', { n: liveStreak })) +
     '<div class="sub">' + tr('md.special') + '</div>' + SPECIALS.map(x => card('sp:' + x.id, '', (sp[x.id] ? '✔ ' : '◇ ') + tr('sp.' + x.id + '.name'), tr('sp.' + x.id + '.d'), sp[x.id] ? tr('md.best') + ': ' + sp[x.id].score + ' pts' : '+' + x.pm + ' ' + tr('unit.pm'))).join('');
   if (Net.active()) h += '<div class="row3"><button class="big" data-b="endless">🌐 ' + tr('md.endless') + '</button><button class="big" data-b="daily">🌐 ' + tr('md.daily') + '</button></div>';
   const o = showOverlay(h + '<button class="big" data-a="back">' + tr('back.menu') + '</button>');
   $$('[data-b]', o).forEach(b => b.onclick = () => showBoard(b.dataset.b, b.dataset.b === 'daily' ? today : '', showModes));
-  $$('[data-m]', o).forEach(b => b.onclick = () => { const m = b.dataset.m; showModeBrief(m === 'endless' ? endlessConfig() : m === 'daily' ? dc : { mode: 'special', id: m.slice(3) }); });
+  if (lockM) $('[data-a=store]', o).onclick = () => showStore(showModes);
+  $$('[data-m]', o).forEach(b => b.onclick = () => { const m = b.dataset.m; if (lockM) return showStore(showModes); showModeBrief(m === 'endless' ? endlessConfig() : m === 'daily' ? dc : { mode: 'special', id: m.slice(3) }); });
   $('[data-a=back]', o).onclick = showMenu;
 }
 /* ============================ RED OPCIONAL: marcadores, telemetría anónima y guardado en la nube ============================ */
@@ -1875,10 +1939,28 @@ function showBoard(mode, key, back) {
   $('[data-a=back]', o).onclick = back || showModes;
   Net.top(mode, key).then(r => { const l = (r && r.top) || []; $('#bd', o).innerHTML = l.length ? '<div class="kv">' + l.map((x, i) => '<span>#' + (i + 1) + ' ' + String(x.nick || '—').replace(/[<>&]/g, '') + '</span><span class="amber">' + x.score + '</span>').join('') + '</div>' : '<p>' + tr('board.empty') + '</p>'; }).catch(() => { $('#bd', o).textContent = tr('sv.netErr'); });
 }
+function showStore(back) {
+  const m = Store.mode(), ent = Store.ent();
+  const row = (id, name, desc, owned) => '<div class="prod' + (owned ? ' own' : '') + '"><div><b>' + name + '</b><small>' + desc + '</small></div>' +
+    (owned ? '<span class="own">✔ ' + tr('st.owned') + '</span>' : '<button class="big go" data-id="' + id + '">' + tr('st.buy', { p: Store.price(id) }) + '</button>') + '</div>';
+  let h = '<h2>' + tr('st.title') + '</h2><p>' + tr('st.intro') + '</p>' + (m === 'sim' ? '<p class="sub" style="color:var(--amber)">' + tr('st.sim') + '</p>' : '') +
+    row(FULL_ID, tr('st.full.n'), tr('st.full.d'), Store.full());
+  for (let k = BASE_T; k < THEATERS.length; k++) h += row(packId(k), tr('th.' + THEATERS[k].id + '.name'), tr('st.pack.d', { t: tr('th.' + THEATERS[k].id + '.sub') }), Store.full() || !!ent.packs[THEATERS[k].id]);
+  h += '<p class="sub" id="st-msg"></p><button class="big" data-a="restore">' + tr('st.restore') + '</button><button class="big" data-a="back">' + tr('back') + '</button>';
+  const o = showOverlay(h), msg = (t, bad) => { const e = $('#st-msg', o); e.textContent = t; e.style.color = bad ? 'var(--red)' : 'var(--green)'; };
+  $$('[data-id]', o).forEach(b => b.onclick = () => {
+    b.disabled = true;
+    Store.buy(b.dataset.id).then(ok => { if (ok) { Net.event('purchase', { id: b.dataset.id }); showStore(back); setTimeout(() => { const e = $('#st-msg'); if (e) { e.textContent = tr('st.thanks'); e.style.color = 'var(--green)'; } }, 0); } else { b.disabled = false; } })
+      .catch(e => { b.disabled = false; msg(e && e.message === 'nobilling' ? tr('st.noBilling') : tr('st.err'), true); });
+  });
+  $('[data-a=restore]', o).onclick = () => Store.restore().then(n => { if (n > 0) { showStore(back); setTimeout(() => { const e = $('#st-msg'); if (e) { e.textContent = tr('st.restoreOk'); e.style.color = 'var(--green)'; } }, 0); } else msg(n < 0 ? tr('st.sim') : tr('st.restoreNone'), n === 0); }).catch(() => msg(tr('st.err'), true));
+  $('[data-a=back]', o).onclick = back || showMenu;
+}
 function showMenu() {
   if (G) { G.speed = 0; }
   const o = showOverlay('<h1 class="title">C2<em>HELL</em></h1><div class="tag">AIR DEFENSE COMMAND &amp; CONTROL — LITE SIM</div>' +
-    '<button class="big go" data-a="camp">' + tr('m.camp') + '</button><button class="big" data-a="modes">' + tr('m.modes') + '</button><button class="big" data-a="ach">' + tr('m.ach', { a: Object.keys(progress().ach).length, b: ACH.length }) + '</button><button class="big" data-a="help">' + tr('m.help') + '</button><button class="big" data-a="set">' + tr('m.set') + '</button>' + (G && !G.over && !G.demo ? '<button class="big" data-a="resume">' + tr('m.resume') + '</button>' : ''));
+    '<button class="big go" data-a="camp">' + tr('m.camp') + '</button><button class="big" data-a="modes">' + tr('m.modes') + '</button><button class="big" data-a="ach">' + tr('m.ach', { a: Object.keys(progress().ach).length, b: ACH.length }) + '</button><button class="big" data-a="help">' + tr('m.help') + '</button><button class="big" data-a="set">' + tr('m.set') + '</button>' + (Store.on() && !Store.full() ? '<button class="big store" data-a="store">🔓 ' + tr('st.title') + '</button>' : '') + (G && !G.over && !G.demo ? '<button class="big" data-a="resume">' + tr('m.resume') + '</button>' : ''));
+  if ($('[data-a=store]', o)) $('[data-a=store]', o).onclick = () => showStore(showMenu);
   $('[data-a=camp]', o).onclick = showLevels; $('[data-a=modes]', o).onclick = showModes; $('[data-a=ach]', o).onclick = () => showAch(showMenu); $('[data-a=help]', o).onclick = () => showHelp(showMenu); $('[data-a=set]', o).onclick = () => showSettings(showMenu);
   const r = $('[data-a=resume]', o); if (r) r.onclick = () => o.classList.add('hidden');
 }
@@ -1907,7 +1989,7 @@ function showLevels() {
     '<div class="row3"><button class="big" data-a="upg">' + tr('camp.upg') + '</button><button class="big" data-a="ach">' + tr('camp.ach', { a: Object.keys(p.ach).length, b: ACH.length }) + '</button><button class="big" data-a="cos">' + tr('camp.cos') + '</button></div>';
   const nodePos = [];
   for (let k = 0; k < TL(); k++) {
-    const T = THEATERS[k], lvls = levelsOf(k), done = lvls.filter(n => p.stars[n] > 0).length, sec = done === lvls.length, lock = !unlocked(lvls[0]);
+    const T = THEATERS[k], lvls = levelsOf(k), done = lvls.filter(n => p.stars[n] > 0).length, sec = done === lvls.length, lock = !unlocked(lvls[0]), paid = !Store.theater(k);
     const pos = lvls.map((n, i) => { const a = T.assets[i % T.assets.length]; return [(500 + (a.lon - T.lonC) * T.kx) / 10, (300 - (a.lat - T.latC) * T.ky) / 6]; });
     const kx = 3.87, ky = 2.32;   // % → px aproximado de la tarjeta (ancho ≈ 387 px, alto ≈ 232 px)
     for (let it = 0; it < 60; it++) for (let i = 0; i < pos.length; i++) for (let j = i + 1; j < pos.length; j++) {   // separa nodos solapados
@@ -1920,11 +2002,12 @@ function showLevels() {
       const s = p.stars[n] || 0, open = unlocked(n), x = clamp(pos[i][0], 8, 92), y = clamp(pos[i][1], 12, 86);
       return '<button class="nd ' + (s ? 'done' : open ? 'open' : 'lock') + '" data-n="' + n + '"' + (open ? '' : ' disabled') + ' style="left:' + x + '%;top:' + y + '%">' + n + '<small>' + '★'.repeat(s) + '☆'.repeat(3 - s) + '</small></button>';
     }).join('');
-    h += '<div class="thc ' + (sec ? 'sec' : lock ? 'lock' : '') + '"><div class="thh"><b>' + tr('th.' + T.id + '.name') + '</b><small>' + tr('th.' + T.id + '.sub') + '</small><span class="bdg">' + (sec ? '✪ ' + tr('camp.secured') : done + '/' + lvls.length) + '</span></div><div class="thm"><canvas width="600" height="360" data-k="' + k + '"></canvas>' + nodes + '</div></div>';
+    h += '<div class="thc ' + (sec ? 'sec' : paid ? 'lock paid' : lock ? 'lock' : '') + '"><div class="thh"><b>' + tr('th.' + T.id + '.name') + '</b><small>' + tr('th.' + T.id + '.sub') + '</small><span class="bdg">' + (paid ? '🔒 ' + Store.price(packId(k)) : sec ? '✪ ' + tr('camp.secured') : done + '/' + lvls.length) + '</span></div><div class="thm"><canvas width="600" height="360" data-k="' + k + '"></canvas>' + nodes + (paid ? '<button class="paybtn" data-pk="' + k + '">🔒 ' + tr('st.buy', { p: Store.price(packId(k)) }) + '</button>' : '') + '</div></div>';
   }
   const o = showOverlay(h + '<button class="big" data-a="back">' + tr('back.menu') + '</button>');
   $$('canvas[data-k]', o).forEach(c2 => { const k = +c2.dataset.k, lvls = levelsOf(k); drawMini(c2, THEATERS[k], lvls.every(n => p.stars[n] > 0) ? 'sec' : !unlocked(lvls[0]) ? 'lock' : ''); });
   $$('.nd', o).forEach(b => b.onclick = () => showBrief(+b.dataset.n));
+  $$('.paybtn', o).forEach(b => b.onclick = () => showStore(showLevels));
   $('[data-a=back]', o).onclick = showMenu;
   $('[data-a=upg]', o).onclick = () => showUpgrades(showLevels);
   $('[data-a=ach]', o).onclick = () => showAch(showLevels);
@@ -1974,6 +2057,7 @@ function showUpgrades(back) {
   $('[data-a=back]', o).onclick = back || showMenu;
 }
 function showBrief(n) {
+  if (!unlocked(n)) return Store.theater(theaterOf(n)) ? showLevels() : showStore(showLevels);
   const lv = makeLevel(n), c = briefCounts(lv);
   const est = lv.spawnWin + 28;
   const got = progress().medals[n] || {};
@@ -2243,6 +2327,7 @@ function applyLang() {
 function init() {
   I18N.init(); I18N.onChange(applyLang); applyLang(); applyA11y();
   nativeInit();
+  initBilling();
   $('#rpskip').onclick = () => endReplay();
   new ResizeObserver(resize).observe($('#mapwrap'));
   addEventListener('resize', resize); addEventListener('orientationchange', () => setTimeout(resize, 200));
@@ -2268,6 +2353,6 @@ function init() {
   requestAnimationFrame(t => { last = t; frame(t); });
   const m = /[?&]level=(\d+)/.exec(location.search); if (m) { $('#overlay').classList.add('hidden'); newGame(+m[1]); }
 }
-window.__C2 = { Net, exportSave, importSave, showSaveTools, showBoard, RP, VO, SND, startReplay, endReplay, applyA11y, musicLevel, SPECIALS, dailyConfig, endlessConfig, buildModeLevel, showModes, showModeBrief, endMode, endlessWave, theaterOf, CAMP_N, THEATERS, DIFF, WEATHER, WX, emRange, runEvent, spawnWave, MEDALS, ACH, COS, checkAch, effLife, medalsFor, endLevel, showEnd, showLevels, showAch, showCosmetics, progress, I18N, tr, applyLang, SET, restockAll, showPause, showSettings, tutTick, TUT, get G() { return G; }, get MAP() { return MAP; }, newGame, step, setSpeed, startOps, SAM, AIR, THREAT, makeLevel, placeUnit, launchMission, missionStation, firstReady, bestReady, inPoly, onLand, toggleEmit, emitters, isEmitting, airbases, validPlace, resize, view, UI, select, buildDock, refreshDock };
+window.__C2 = { Store, showStore, Net, exportSave, importSave, showSaveTools, showBoard, RP, VO, SND, startReplay, endReplay, applyA11y, musicLevel, SPECIALS, dailyConfig, endlessConfig, buildModeLevel, showModes, showModeBrief, endMode, endlessWave, theaterOf, CAMP_N, THEATERS, DIFF, WEATHER, WX, emRange, runEvent, spawnWave, MEDALS, ACH, COS, checkAch, effLife, medalsFor, endLevel, showEnd, showLevels, showAch, showCosmetics, progress, I18N, tr, applyLang, SET, restockAll, showPause, showSettings, tutTick, TUT, get G() { return G; }, get MAP() { return MAP; }, newGame, step, setSpeed, startOps, SAM, AIR, THREAT, makeLevel, placeUnit, launchMission, missionStation, firstReady, bestReady, inPoly, onLand, toggleEmit, emitters, isEmitting, airbases, validPlace, resize, view, UI, select, buildDock, refreshDock };
 init();
 })();

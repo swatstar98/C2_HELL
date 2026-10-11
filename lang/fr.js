@@ -604,5 +604,21 @@ I18N.add('fr', {
   "sv.upOk": "Envoyé. Votre code cloud : {c}",
   "sv.netErr": "Impossible de joindre le serveur",
   "board.title": "CLASSEMENTS EN LIGNE",
-  "board.empty": "Aucun score pour l'instant"
+  "board.empty": "Aucun score pour l'instant",
+  "st.title": "BOUTIQUE",
+  "st.intro": "La campagne de 12 niveaux est gratuite. Le reste se débloque en un seul achat : sans publicité ni abonnement.",
+  "st.full.n": "JEU COMPLET",
+  "st.full.d": "Les 4 théâtres supplémentaires (16 niveaux), le mode Sans fin, le Défi quotidien, les Missions spéciales et les futures extensions.",
+  "st.pack.d": "4 nouveaux niveaux : {t}.",
+  "st.owned": "ACHETÉ",
+  "st.buy": "DÉBLOQUER · {p}",
+  "st.unlockFull": "DÉBLOQUER LE JEU COMPLET · {p}",
+  "st.modesLock": "Les modes de jeu font partie du jeu complet.",
+  "st.restore": "RESTAURER LES ACHATS",
+  "st.restoreOk": "Achats restaurés",
+  "st.restoreNone": "Aucun achat trouvé",
+  "st.thanks": "Merci de soutenir le jeu !",
+  "st.sim": "[MODE TEST] Achat simulé : rien n'est débité.",
+  "st.err": "L'achat n'a pas pu être finalisé",
+  "st.noBilling": "La boutique n'est pas disponible dans cette version"
 });

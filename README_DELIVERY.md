@@ -65,3 +65,29 @@ server/server.js                                                        ← serv
 .github/workflows/{android,ios,pages}.yml                               ← CI
 ```
 `android/`, `ios/` y `www/` no se versionan: se regeneran con `npm run native:add:*` y `npm run sync`. Tras editar el juego: `npm run sync`.
+
+## Tienda (juego completo + packs de teatro)
+
+**Modelo:** campaña de 12 niveles (3 teatros) gratis. De pago, una sola vez y sin anuncios: **Juego completo** (los 4 teatros extra + Sin fin + Reto diario + Misiones especiales + futuras ampliaciones) o un **pack por teatro** (4 niveles). Precios de referencia en `config.js` (2,99 € / 0,99 €); en la app nativa se muestra el precio localizado que devuelve la tienda.
+
+**Estados** (`Store.mode()` en `game.js`):
+| Modo | Cuándo | Efecto |
+|---|---|---|
+| `off` | `store.enabled:false` (por defecto: web/PWA, desarrollo, APK de depuración) | Todo desbloqueado |
+| `sim` | `?store=sim` en la URL, o `store.sim:true` | Compra **simulada** (no cobra): solo para probar |
+| `live` | `store.enabled:true` + app nativa con el plugin | Compra real vía Google Play / StoreKit |
+| `nobilling` | `store.enabled:true` pero sin pasarela | No se puede comprar (falla cerrado, nada se regala) |
+
+**Para publicar con tienda:**
+1. Crea en Play Console y App Store Connect estos productos **únicos / no consumibles**: `c2hell_full`, `c2hell_pack_baltico`, `c2hell_pack_marrojo`, `c2hell_pack_taiwan`, `c2hell_pack_balcanes` (el id de pack es `c2hell_pack_` + el `id` del teatro en `maps2.js`).
+2. Genera con la tienda activada: `npm run sync:store` (o `npm run android:aab:store`). El workflow `android.yml` ya lo hace para el AAB firmado.
+3. iOS: en Xcode añade la capability **In-App Purchase** al target App.
+4. Prueba con cuentas de prueba de licencia (Play) y Sandbox (Apple) **antes** de publicar.
+
+**Pasarela:** `initBilling()` usa el plugin `@capgo/native-purchases` y expone `window.C2_BILLING` (`purchase`, `restore`, `price`). Para cambiar de plugin (RevenueCat, etc.) basta con rellenar ese mismo contrato.
+
+**Limitaciones (honestas):**
+- La integración nativa **no está probada** en dispositivo real ni contra las tiendas; sí lo está la lógica con una pasarela simulada (`tools` de prueba headless).
+- El desbloqueo se guarda en `localStorage` (`save.iap`) y se comprueba en el cliente: un jugador con el móvil rooteado podría falsificarlo. Es un riesgo aceptable para un pago de pocos euros; la solución sería validar recibos en un servidor.
+- `iap` no entra en el código de copia de seguridad ni en la nube, a propósito: si no, bastaría compartir un código para regalar el juego. Al reinstalar se recupera con **Restaurar compras**.
+- Apple exige el botón *Restaurar compras* (está en la pantalla de tienda) y, para vender, cuenta de desarrollador de pago.

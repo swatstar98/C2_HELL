@@ -605,5 +605,21 @@ I18N.add('en', {
   "sv.upOk": "Uploaded. Your cloud code: {c}",
   "sv.netErr": "Cannot reach the server",
   "board.title": "ONLINE LEADERBOARDS",
-  "board.empty": "No scores yet"
+  "board.empty": "No scores yet",
+  "st.title": "STORE",
+  "st.intro": "The 12-level campaign is free. The rest unlocks with a one-time purchase: no ads, no subscriptions.",
+  "st.full.n": "FULL GAME",
+  "st.full.d": "The 4 extra theaters (16 levels), Endless mode, Daily challenge, Special missions and future expansions.",
+  "st.pack.d": "4 new levels: {t}.",
+  "st.owned": "OWNED",
+  "st.buy": "UNLOCK · {p}",
+  "st.unlockFull": "UNLOCK FULL GAME · {p}",
+  "st.modesLock": "Game modes are part of the full game.",
+  "st.restore": "RESTORE PURCHASES",
+  "st.restoreOk": "Purchases restored",
+  "st.restoreNone": "No purchases found",
+  "st.thanks": "Thank you for supporting the game!",
+  "st.sim": "[TEST MODE] Simulated purchase: nothing is charged.",
+  "st.err": "The purchase could not be completed",
+  "st.noBilling": "The store is not available in this build"
 });

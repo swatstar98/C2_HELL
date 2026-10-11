@@ -604,5 +604,21 @@ I18N.add('pt', {
   "sv.upOk": "Enviado. O seu código da nuvem: {c}",
   "sv.netErr": "Não foi possível contactar o servidor",
   "board.title": "CLASSIFICAÇÕES ONLINE",
-  "board.empty": "Ainda sem pontuações"
+  "board.empty": "Ainda sem pontuações",
+  "st.title": "LOJA",
+  "st.intro": "A campanha de 12 níveis é grátis. O resto desbloqueia-se com uma compra única: sem anúncios nem subscrições.",
+  "st.full.n": "JOGO COMPLETO",
+  "st.full.d": "Os 4 teatros extra (16 níveis), modo Sem fim, Desafio diário, Missões especiais e futuras expansões.",
+  "st.pack.d": "4 níveis novos: {t}.",
+  "st.owned": "COMPRADO",
+  "st.buy": "DESBLOQUEAR · {p}",
+  "st.unlockFull": "DESBLOQUEAR JOGO COMPLETO · {p}",
+  "st.modesLock": "Os modos de jogo fazem parte do jogo completo.",
+  "st.restore": "RESTAURAR COMPRAS",
+  "st.restoreOk": "Compras restauradas",
+  "st.restoreNone": "Nenhuma compra encontrada",
+  "st.thanks": "Obrigado por apoiar o jogo!",
+  "st.sim": "[MODO DE TESTE] Compra simulada: nada é cobrado.",
+  "st.err": "Não foi possível concluir a compra",
+  "st.noBilling": "A loja não está disponível nesta versão"
 });

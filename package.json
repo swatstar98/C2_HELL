@@ -16,7 +16,10 @@
     "ios": "npm run sync && cap open ios",
     "android:apk": "npm run sync && cd android && ./gradlew assembleDebug",
     "android:aab": "npm run sync && cd android && ./gradlew bundleRelease",
-    "server": "node server/server.js"
+    "server": "node server/server.js",
+    "sync:store": "npm run www:store && cap sync && node tools/patch_native.js",
+    "android:aab:store": "npm run sync:store && cd android && ./gradlew bundleRelease",
+    "www:store": "node tools/build_www.js --store"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
@@ -24,7 +27,8 @@
     "@capacitor/core": "^8.5.3",
     "@capacitor/haptics": "^8.0.2",
     "@capacitor/ios": "^8.5.3",
-    "@capacitor/status-bar": "^8.0.4"
+    "@capacitor/status-bar": "^8.0.4",
+    "@capgo/native-purchases": "^8.9.2"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",

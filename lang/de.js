@@ -604,5 +604,21 @@ I18N.add('de', {
   "sv.upOk": "Hochgeladen. Dein Cloud-Code: {c}",
   "sv.netErr": "Server nicht erreichbar",
   "board.title": "ONLINE-BESTENLISTEN",
-  "board.empty": "Noch keine Punktzahlen"
+  "board.empty": "Noch keine Punktzahlen",
+  "st.title": "SHOP",
+  "st.intro": "Die Kampagne mit 12 Levels ist kostenlos. Der Rest wird mit einem Einmalkauf freigeschaltet: keine Werbung, keine Abos.",
+  "st.full.n": "VOLLVERSION",
+  "st.full.d": "Die 4 zusätzlichen Schauplätze (16 Levels), Endlosmodus, Tägliche Herausforderung, Sondermissionen und künftige Erweiterungen.",
+  "st.pack.d": "4 neue Levels: {t}.",
+  "st.owned": "GEKAUFT",
+  "st.buy": "FREISCHALTEN · {p}",
+  "st.unlockFull": "VOLLVERSION FREISCHALTEN · {p}",
+  "st.modesLock": "Die Spielmodi gehören zur Vollversion.",
+  "st.restore": "KÄUFE WIEDERHERSTELLEN",
+  "st.restoreOk": "Käufe wiederhergestellt",
+  "st.restoreNone": "Keine Käufe gefunden",
+  "st.thanks": "Danke für die Unterstützung des Spiels!",
+  "st.sim": "[TESTMODUS] Simulierter Kauf: Es wird nichts abgebucht.",
+  "st.err": "Der Kauf konnte nicht abgeschlossen werden",
+  "st.noBilling": "Der Shop ist in dieser Version nicht verfügbar"
 });

@@ -8,4 +8,10 @@ for (const f of FILES) cp(path.join(root, f), path.join(out, f));
 for (const f of fs.readdirSync(path.join(root, 'lang'))) cp(path.join(root, 'lang', f), path.join(out, 'lang', f));
 for (const f of fs.readdirSync(path.join(root, 'assets/fonts'))) cp(path.join(root, 'assets/fonts', f), path.join(out, 'assets/fonts', f));
 for (const f of fs.readdirSync(path.join(root, 'icons'))) cp(path.join(root, 'icons', f), path.join(out, 'icons', f));
+// --store (o C2_STORE=1) activa la tienda (juego completo + packs) en la build nativa; sin ello la app sale con todo desbloqueado.
+if ((process.env.C2_STORE === '1' || process.argv.includes('--store'))) {
+  const f = path.join(out, 'config.js'); const t = fs.readFileSync(f, 'utf8');
+  if (!/enabled: false/.test(t)) throw new Error('config.js: no se encuentra store.enabled:false');
+  fs.writeFileSync(f, t.replace('enabled: false', 'enabled: true')); console.log('Tienda ACTIVADA en www/config.js');
+}
 console.log('www/ listo (' + fs.readdirSync(out).length + ' entradas)');
