@@ -8,7 +8,7 @@ Idiomas: es, en, fr, de, pt. Vertical fijo.
 - **Red local**: `node tools/serve.js` y abre `http://IP-DEL-PC:8080` en el móvil. (El service worker y el portapapeles solo funcionan en `localhost` o HTTPS.)
 
 ## 2. Android (APK / AAB)
-Requisitos: Node 20, JDK 17, Android Studio (SDK 34+).
+Requisitos: Node 22+, JDK 21, Android Studio reciente (SDK 36; Capacitor 8 apunta a targetSdk 36, minSdk 24).
 ```bash
 npm install
 npm run native:add:android     # genera android/, lo parchea (vertical, VIBRATE, notch) y crea los iconos
@@ -20,7 +20,7 @@ npm run android                # o abre el proyecto en Android Studio
 - Ficha de Play: categoría Juegos → Estrategia; permisos usados: solo VIBRATE (y INTERNET, que Capacitor declara, solo se usa si activas las funciones online). Necesitas icono 512, gráfico destacado 1024×500 y capturas verticales.
 
 ## 3. iOS (IPA / TestFlight)
-**Requiere un Mac con Xcode 15+ y CocoaPods**, y una cuenta de Apple Developer (99 USD/año) para dispositivo real y TestFlight.
+**Requiere un Mac con Xcode reciente (Capacitor 8 usa Swift Package Manager, ya no CocoaPods; despliegue mínimo iOS 15)**, y una cuenta de Apple Developer (99 USD/año) para dispositivo real y TestFlight.
 ```bash
 npm install
 npm run native:add:ios         # genera ios/, lo parchea (solo vertical, sin barra de estado) y crea los iconos

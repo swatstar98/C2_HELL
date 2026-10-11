@@ -80,6 +80,6 @@ La fuente va incrustada en base64 en `style.css` (funciona desde `file://` y en 
 - **Idiomas**: es, en, fr, de, pt (`lang/*.js`; `tools` de generación en el repo de trabajo). Los nombres de país del mapa solo están localizados en es/en.
 
 ## Entrega móvil (Fase D)
-- **PWA** (`manifest.webmanifest`, `sw.js`, iconos) y **Capacitor 6** (`capacitor.config.json`, `tools/build_www.js` → `www/`). Las carpetas `android/` e `ios/` se regeneran con `npm run native:add:*` y `tools/patch_native.js` las parchea (vertical, VIBRATE, notch; iOS solo vertical y sin barra de estado).
+- **PWA** (`manifest.webmanifest`, `sw.js`, iconos) y **Capacitor 8** (Android targetSdk 36, iOS con SPM) (`capacitor.config.json`, `tools/build_www.js` → `www/`). Las carpetas `android/` e `ios/` se regeneran con `npm run native:add:*` y `tools/patch_native.js` las parchea (vertical, VIBRATE, notch; iOS solo vertical y sin barra de estado).
 - `buzz()` usa `Capacitor.Plugins.Haptics` si existe (iOS) y `navigator.vibrate` si no. `nativeInit()` oculta la barra de estado, gestiona el botón atrás y pausa en segundo plano. `SND.init()` reanuda el AudioContext y arranca un `<audio>` silencioso (truco del interruptor de silencio de iOS).
 - **Red opcional** (`Net`, `showSaveTools`, `showBoard`): copia de seguridad por código `C2H1.`, y con `config.js` + `server/server.js`: marcadores, telemetría anónima (opt‑in) y guardado en la nube por código.
