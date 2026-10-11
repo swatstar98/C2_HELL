@@ -89,3 +89,8 @@ La fuente va incrustada en base64 en `style.css` (funciona desde `file://` y en 
 - `Store` (game.js) gestiona derechos (`save.iap`, fuera de `SAVE_KEYS`), precios y compra; `unlocked(n)`, `showBrief`, `newGame` y `showModes` consultan `Store.theater(k)` / `Store.modes()`.
 - Pasarela por contrato `window.C2_BILLING`; `initBilling()` la rellena con `@capgo/native-purchases` en nativo. Modos `off/sim/live/nobilling` (ver README_DELIVERY.md).
 - El primer nivel de un pack comprado se abre sin exigir los anteriores; el resto del pack sigue la progresión por estrellas.
+
+## Fase F — Feedback de playtest (tutorial, textos, aviones en el mapa)
+- **Tutorial = nivel** (`mode:'tut'`, `tutLevel()`): 16 pasos con ventanas emergentes (`TSTEPS`, `coachShow/Next/Tick`) que explican y exigen cada acción (colocar baterías, abrir AIRE/RADARES, encender/apagar radares, iniciar operación, tocar un contacto, enviar un caza). Se pausa en los pasos de acción durante la operación. Oleadas suaves y deterministas; no cuenta para estadísticas ni logros. Es gratis, se puede omitir, y es la primera entrada de la campaña (la primera vez, «Campaña» lo lanza directamente).
+- **Textos más grandes:** fuentes del CSS ×1,2 (mínimo 12 px) y etiquetas del mapa ≥ 11,5 px; log más corto.
+- **Aviones en el mapa:** los aviones en hangar se dibujan como **fichas tocables** junto a su base (`airChips/drawAirChips/hitChip`). En operación: tocar ficha → arma la salida de ese avión → tocar destino (CAP/AEW/ISR, interceptar contacto o atacar emplazamiento). También se puede **arrastrar la ficha** hasta el destino. En preparación, tocar la ficha abre su panel (cambiar de base). La pestaña AIRE sigue valiendo para comprar.
