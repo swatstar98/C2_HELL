@@ -15,6 +15,16 @@ if (+jm[1] < 21) die('Capacitor 8 necesita JDK 21 o superior (tienes ' + jm[1] +
 const sdk = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT || (fs.existsSync(path.join(root, 'android/local.properties')) ? /sdk\.dir=(.*)/.exec(fs.readFileSync(path.join(root, 'android/local.properties'), 'utf8')) : null);
 const sdkDir = Array.isArray(sdk) ? sdk[1].replace(/\\\\/g, '\\').replace(/\\:/g, ':').trim() : sdk;
 if (!sdkDir || !fs.existsSync(sdkDir)) die('No encuentro el Android SDK. Instala Android Studio y define ANDROID_HOME (Windows: %LOCALAPPDATA%\\Android\\Sdk; macOS: ~/Library/Android/sdk).');
+// JAVA_HOME inválido (típico tras copiar una ruta que no existe): Gradle lo usa antes que el java del PATH y falla. Se corrige para esta ejecución.
+const javaBin = h => h && fs.existsSync(path.join(h, 'bin', win ? 'java.exe' : 'java'));
+if (process.env.JAVA_HOME && !javaBin(process.env.JAVA_HOME)) {
+  console.log('Aviso: JAVA_HOME apunta a una ruta que no existe (' + process.env.JAVA_HOME + '). Busco el JDK que está en uso…');
+  const w = cp.spawnSync(win ? 'where' : 'which', ['java'], { encoding: 'utf8', shell: win }), first = (w.stdout || '').split(/\r?\n/).filter(Boolean)[0];
+  let home = first ? path.dirname(path.dirname(fs.existsSync(first) ? fs.realpathSync(first) : first)) : null;
+  if (!javaBin(home)) home = ['C:\\Program Files\\Android\\Android Studio\\jbr', '/Applications/Android Studio.app/Contents/jbr/Contents/Home'].find(javaBin);
+  if (!javaBin(home)) die('JAVA_HOME (' + process.env.JAVA_HOME + ') no existe. Bórralo (PowerShell: Remove-Item Env:JAVA_HOME) o apúntalo a la carpeta real del JDK 21 (la que contiene bin\\java.exe).');
+  process.env.JAVA_HOME = home; console.log('Uso JAVA_HOME=' + home);
+}
 console.log('Node ' + process.version + ' · JDK ' + jm[1] + ' · SDK ' + sdkDir);
 
 // 2) dependencias, proyecto nativo y web
