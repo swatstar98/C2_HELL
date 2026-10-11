@@ -55,3 +55,19 @@ Más teatros, más tipos de amenaza (enjambres con evasión), audio real, guarda
 Simbología NTDS: fuente **NTDS Icons** de Peter Ellis Jones — https://github.com/peterellisjones/ntds-icons
 (fuente bajo SIL OFL 1.1, código MIT/Apache-2.0). Archivos y licencias en `assets/fonts/`.
 La fuente va incrustada en base64 en `style.css` (funciona desde `file://` y en Capacitor); si no carga, el juego usa símbolos vectoriales de respaldo.
+
+## Profundidad táctica (Fase A)
+- **Clima** por nivel (despejado/niebla/noche/tormenta): multiplica el alcance de sensores (`WX`, `emRange`); la tormenta frena las aeronaves. Overlay visual y chip `#wx`.
+- **Guerra electrónica**: evento `jam` reduce un emisor a ×.35 durante 16 s; apagarlo 2 s lo resintoniza.
+- **Eventos en nivel**: refuerzos, ataque sorpresa (drones desde un flanco), orden del mando (proteger un activo 40 s, +120 créditos), interferencia.
+- **Oleadas concentradas** (nivel ≥5): foco en un objetivo, a veces en dos ejes con llegada simultánea. **Drones evasivos** (nivel ≥7) con Pk ×.78.
+- **Unidades nuevas**: CIWS láser, destructor DDG (solo en el mar a ≤ `PORT_R` de un puerto), AH-64, nodriza KC-46 (repostaje en vuelo).
+- **Dificultad** Normal/Veterano/Experto (`DIFF`): amenazas, créditos y PM; medalla «Temple» y 3 logros nuevos.
+
+## Teatros y modos (Fase B)
+- `maps2.js` añade 4 teatros (Báltico, Mar Rojo, Taiwán, Balcanes) generados con `world-atlas` (Natural Earth, dominio público). Niveles 13-28 (4 por teatro); `theaterOf(n)`, `CAMP_N()`, `levelsOf(k)` lo generalizan.
+- `newGame(n, cfg)`: `cfg = {mode:'endless'|'daily'|'special', ...}`; `buildModeLevel(cfg)` construye el nivel. Los modos no tocan estrellas/medallas de campaña; pagan PM y puntúan.
+- **Sin fin**: oleadas generadas al vuelo (`endlessWave`), rampas que se reconstruyen, puntuación = derribos + oleadas + oleadas limpias. Top‑5 local (`p.endless`).
+- **Reto diario**: nivel fijado por la fecha (`dailyConfig`, semilla FNV). La *composición* del nivel (teatro, clima, regla, oleadas, rampas) es idéntica para todos; los dados del combate no están sincronizados. Racha diaria (`p.daily`). `?date=YYYY-MM-DD` para pruebas.
+- **Misiones especiales** (`SPECIALS`): Solo aire, Austeridad, Tormenta perfecta, Enjambre, Lluvia de misiles (`lv.rule`).
+- Marcadores: solo en el dispositivo; la clasificación online queda para el endpoint opcional de la Fase D.
