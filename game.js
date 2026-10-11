@@ -2374,8 +2374,14 @@ function showArchive(id) {
 function showMenu() {
   if (!(G && !G.over && G.hist) && ERA) applyEra(null);   // al salir de una misión histórica se restaura el orden de batalla y la piel moderna
   if (G) { G.speed = 0; }
-  const o = showOverlay('<h1 class="title">C2<em>HELL</em></h1><div class="tag">AIR DEFENSE COMMAND &amp; CONTROL — LITE SIM</div>' +
-    '<button class="big go" data-a="camp">' + tr('m.camp') + '</button><button class="big" data-a="hist">🎖 ' + tr('m.hist') + '</button><button class="big" data-a="modes">' + tr('m.modes') + '</button><button class="big" data-a="ach">' + tr('m.ach', { a: Object.keys(progress().ach).length, b: ACH.length }) + '</button><button class="big" data-a="help">' + tr('m.help') + '</button><button class="big" data-a="set">' + tr('m.set') + '</button>' + (Store.on() && !Store.full() ? '<button class="big store" data-a="store">🔓 ' + tr('st.title') + '</button>' : '') + (G && !G.over && !G.demo ? '<button class="big" data-a="resume">' + tr('m.resume') + '</button>' : ''));
+  const tile = (a, label, cls) => { const m = /^(\S+)\s+(.*)$/.exec(label); const ic = m && !/[\p{L}\p{N}]/u.test(m[1]) ? m[1] : ''; return '<button class="mt ' + (cls || '') + '" data-a="' + a + '"><span class="ic">' + (ic || '◈') + '</span><span class="lb">' + (ic ? m[2] : label) + '</span></button>'; };
+  const hasRes = G && !G.over && !G.demo, hasStore = Store.on() && !Store.full();
+  const o = showOverlay('<div class="mhead"><h1 class="title">C2<em>HELL</em></h1><div class="tag">AIR DEFENSE COMMAND &amp; CONTROL — LITE SIM</div></div>' +
+    '<nav class="mnav">' + (hasRes ? tile('resume', tr('m.resume'), 'res') : '') +
+    tile('camp', tr('m.camp'), 'hero go') + tile('hist', '🎖 ' + tr('m.hist'), 'hero') +
+    '<div class="mgrid">' + tile('modes', tr('m.modes')) + tile('ach', tr('m.ach', { a: Object.keys(progress().ach).length, b: ACH.length })) + '</div>' +
+    '<div class="mbar">' + tile('help', tr('m.help'), 'sm') + tile('set', tr('m.set'), 'sm') + (hasStore ? tile('store', '🔓 ' + tr('st.title'), 'sm store') : '') + '</div></nav>');
+  o.firstChild.classList.add('menu');
   if ($('[data-a=store]', o)) $('[data-a=store]', o).onclick = () => showStore(showMenu);
   $('[data-a=camp]', o).onclick = () => { if (!SET.tutDone && !/[?&]unlock/.test(location.search)) startTutorial(); else showLevels(); }; $('[data-a=hist]', o).onclick = showHist; $('[data-a=modes]', o).onclick = showModes; $('[data-a=ach]', o).onclick = () => showAch(showMenu); $('[data-a=help]', o).onclick = () => showHelp(showMenu); $('[data-a=set]', o).onclick = () => showSettings(showMenu);
   const r = $('[data-a=resume]', o); if (r) r.onclick = () => o.classList.add('hidden');
