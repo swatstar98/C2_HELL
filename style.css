@@ -225,3 +225,9 @@ button{font:inherit;color:inherit;cursor:pointer}
 .sw small{display:block;font:10px var(--mono);color:var(--dim)}
 .sw.sel{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber)}
 .sw.lock{opacity:.45}
+
+/* clima / órdenes / interferencias */
+#wx{position:absolute;right:6px;top:6px;z-index:2;padding:2px 8px;border-radius:10px;font:700 10px var(--mono);letter-spacing:.12em;border:1px solid var(--dim);color:#b8c8d6;background:rgba(5,10,15,.7);pointer-events:none}
+#ord{position:absolute;left:50%;transform:translateX(-50%);top:26px;z-index:2;padding:2px 10px;border-radius:10px;font:700 10px var(--mono);letter-spacing:.08em;border:1px solid var(--amber);color:var(--amber);background:rgba(5,10,15,.82);pointer-events:none;white-space:nowrap}
+.card.em.jam{border-color:var(--red);animation:jam .5s infinite alternate}
+@keyframes jam{from{box-shadow:0 0 0 0 rgba(255,77,77,.0)}to{box-shadow:0 0 10px 1px rgba(255,77,77,.55)}}

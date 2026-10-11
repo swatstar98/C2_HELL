@@ -29,6 +29,10 @@ const SAM = {
             pk: { drone: .62, cruise: .78, ballistic: .40, arm: .6 } },
   bmd:    { id: 'bmd',    short: 'ABM',    cost: 380, range: 400, reload: 5.5, ammo: 4, mspeed: 560, mcost: 90, sensor: 220, restock: 200, unlock: 6,
             pk: { drone: 0, cruise: .30, ballistic: .78, arm: .25 } },
+  laser:  { id: 'laser',  short: 'LAS',    cost: 200, range: 110, reload: .22, ammo: 140, mspeed: 2400, mcost: 0, sensor: 90, restock: 40, unlock: 5,
+            pk: { drone: .85, cruise: .35, ballistic: 0, arm: .4 } },
+  ship:   { id: 'ship',   short: 'DDG',    cost: 340, range: 330, reload: 2.4, ammo: 12, mspeed: 450, mcost: 30, radar: 240, restock: 100, unlock: 7, naval: true,
+            pk: { drone: .6, cruise: .72, ballistic: .35, arm: .55 } },
   radar:  { id: 'radar',  short: 'RADAR',  cost: 70, range: 0, radar: 280, ammo: 0, sensor: 0, unlock: 2, pk: {} }
 };
 const AIR = {
@@ -37,6 +41,9 @@ const AIR = {
   f15e: { id: 'f15e', short: 'F-15E', name: 'F-15E Strike Eagle', cost: 210, speed: 180, fuel: 130, ammo: 8, reload: 1.2, mspeed: 480, mcost: 25, engage: 150, radar: 150, strike: .72, orbit: 36, turn: 16, unlock: 4,
           pk: { drone: .75, cruise: .68, ballistic: 0, arm: .6 } },
   e2:   { id: 'e2',   short: 'E-2D',  name: 'E-2D Hawkeye', cost: 160, speed: 110, fuel: 200, ammo: 0, radar: 360, strike: 0, orbit: 30, turn: 18, unlock: 2, pk: {} },
+  ah64: { id: 'ah64', short: 'AH-64', name: 'AH-64 Apache', cost: 150, speed: 90, fuel: 100, ammo: 12, reload: .55, mspeed: 420, mcost: 6, engage: 100, radar: 100, strike: .22, orbit: 24, turn: 12, unlock: 5,
+          pk: { drone: .82, cruise: .35, ballistic: 0, arm: .2 } },
+  tanker: { id: 'tanker', short: 'KC-46', name: 'KC-46 Pegasus', cost: 140, speed: 100, fuel: 240, ammo: 0, radar: 0, refuel: 110, strike: 0, orbit: 30, turn: 18, unlock: 6, pk: {} },
   mq9:  { id: 'mq9',  short: 'MQ-9',  name: 'MQ-9 Reaper', cost: 70, speed: 75, fuel: 230, ammo: 0, radar: 170, strike: .28, orbit: 26, turn: 10, unlock: 3, pk: {} }
 };
 const THREAT = {
@@ -54,12 +61,15 @@ const ASSET_TYPE = {   // peso en la integridad (w) y probabilidad de ser objeti
 const SITE_AA = Math.round(115 * DS);   // radio de la defensa antiaérea de cada rampa
 // Escala de todas las distancias/velocidades al mundo vertical (el balance se calibró en 1600×800)
 for (const D of Object.values(SAM)) for (const p of ['range', 'sensor', 'radar', 'mspeed']) if (D[p]) D[p] = Math.round(D[p] * DS);
-for (const D of Object.values(AIR)) for (const p of ['speed', 'engage', 'radar', 'orbit', 'mspeed']) if (D[p]) D[p] = Math.round(D[p] * DS);
+for (const D of Object.values(AIR)) for (const p of ['speed', 'engage', 'radar', 'orbit', 'mspeed', 'refuel']) if (D[p]) D[p] = Math.round(D[p] * DS);
 for (const D of Object.values(THREAT)) D.spd = Math.round(D.spd * DS * 10) / 10;
 const tget = (o, key, props) => props.forEach(p => Object.defineProperty(o, p, { get: () => tr(key + '.' + p), enumerable: true, configurable: true }));
 for (const D of Object.values(SAM)) tget(D, 'sam.' + D.id, ['name', 'desc']);
 for (const D of Object.values(AIR)) tget(D, 'air.' + D.id, ['role', 'mission']);
 for (const [k, D] of Object.entries(THREAT)) Object.defineProperty(D, 'name', { get: () => tr('thr.' + k), enumerable: true });
+const DIFF = { normal: { thr: 1, cred: 1, pm: 1 }, veteran: { thr: 1.25, cred: .9, pm: 1.25 }, expert: { thr: 1.5, cred: .8, pm: 1.5 } };
+const WEATHER = ['clear', 'clear', 'night', 'fog', 'clear', 'storm', 'night', 'fog', 'storm', 'night', 'fog', 'storm'];
+const PORT_R = 170;                     // radio alrededor de un puerto donde puede fondear un buque
 const SPAWN_WIN = [8, 25, 45, 70, 95, 125, 155, 185, 215, 240, 265, 280];
 
 /* ============================ GEOGRAFÍA ============================ */
@@ -112,8 +122,9 @@ const radarMul = () => 1 + .08 * U('radar');
 const baseCap = () => 4 + U('hangar');
 
 /* ============================ NIVELES ============================ */
-function makeLevel(n) {
-  const L = n, idx = Math.min(n, 12) - 1;
+function makeLevel(n, opts) {
+  opts = opts || {};
+  const DF = DIFF[opts.diff || SET.diff] || DIFF.normal, L = n, idx = Math.min(n, 12) - 1;
   const win = SPAWN_WIN[idx];
   const nWaves = Math.max(2, Math.round(win / 14) + 1);
   const avail = [['drone', .55]];
@@ -127,19 +138,25 @@ function makeLevel(n) {
   const waves = [];
   for (let k = 0; k < nWaves; k++) {
     const prog = nWaves > 1 ? k / (nWaves - 1) : 0;
-    const P = (4 + 1.8 * L + over * 2) * (0.75 + 0.5 * prog);
+    const P = (4 + 1.8 * L + over * 2) * (0.75 + 0.5 * prog) * DF.thr;
     const items = [];
     for (const [kind, sh] of avail) {
       const cnt = sround(P * sh / sum / pts[kind]);
       if (cnt > 0) items.push({ kind, count: cnt });
     }
     if (!items.length) items.push({ kind: 'drone', count: 3 });
-    waves.push({ t: 1 + (win - 1) * prog, items });
+    waves.push({ t: 1 + (win - 1) * prog, items, focus: L >= 5 && k % 2 === 1 });
   }
+  const events = [];
+  if (L >= 2) events.push({ t: win * .4, kind: 'reinforce' });
+  if (L >= 3) { events.push({ t: win * .5, kind: 'surprise', n: 3 + Math.floor(L / 2) }); events.push({ t: win * .22, kind: 'order' }); }
+  if (L >= 4) { const nj = 1 + Math.floor(L / 6); for (let i = 0; i < nj; i++) events.push({ t: win * (.3 + .4 * i / nj), kind: 'jam' }); }
+  events.sort((a, b) => a.t - b.t);
   return {
+    diff: opts.diff || SET.diff, weather: opts.weather || WEATHER[(n - 1) % 12], evasive: L >= 7 ? .3 : 0, events,
     n, theater: (n - 1) % Math.max(1, THEATERS.length), get name() { return n <= 12 ? tr('lvl.' + n) : tr('lvl.endless', { n: n - 12 }); },
     waves, spawnWin: win, nSites: n < 3 ? 1 : n < 6 ? 2 : n < 9 ? 3 : n < 12 ? 4 : 5,
-    credits: 330 + 55 * L, income: 4 + 0.7 * L, siteDef: clamp(.05 + .03 * L, 0, .5),
+    credits: Math.round((330 + 55 * L) * DF.cred), income: 4 + 0.7 * L, siteDef: clamp(.05 + .03 * L, 0, .5),
     fleet: { f16: L >= 3 ? 3 : 2, e2: L >= 2 ? 1 : 0, mq9: L >= 3 ? 1 : 0, f15e: L >= 4 ? (L >= 7 ? 2 : 1) : 0 }
   };
 }
@@ -158,9 +175,9 @@ const bg = document.createElement('canvas');
 
 function saveGet() { try { return JSON.parse(localStorage.getItem('c2hell.save') || '{}'); } catch (e) { return {}; } }
 function savePut(o) { try { localStorage.setItem('c2hell.save', JSON.stringify(o)); } catch (e) { /* sin almacenamiento */ } }
-const SET = Object.assign({ snd: true, vib: true, rings: true, scale: 1, tutDone: false, cos: {} }, saveGet().set || {});
+const SET = Object.assign({ snd: true, vib: true, rings: true, scale: 1, tutDone: false, cos: {}, diff: 'normal' }, saveGet().set || {});
 function saveSet() { const o = saveGet(); o.set = SET; savePut(o); }
-const FXS = { shake: 0, flash: 0, hold: 0, pulse: 0 };
+const FXS = { shake: 0, flash: 0, hold: 0, pulse: 0, lt: 0 };
 function floatTxt(x, y, txt, col) { if (!G) return; if (G.floats.length > 40) G.floats.shift(); G.floats.push({ x, y, txt, col, t: 0 }); }
 function buzz(ms) { if (SET.vib && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) { /* sin vibración */ } } }
 
@@ -171,7 +188,7 @@ function newGame(n) {
   G = { up, n, lv, t: 0, speed: 0, phase: 'prep', over: false, endTimer: 0, credits: Math.round(lv.credits * (1 + .1 * (up.budget || 0))), id: 1, waveIdx: 0,
         assets: [], units: [], sites: [], threats: [], pending: [], missiles: [], fx: [], air: [], sel: null, buyBase: null,
         stats: { kills: 0, leaked: 0, fired: 0, spent: 0, value: 0, airLost: 0, strikes: 0, spentCredits: 0, evaded: 0,
-          killKind: {}, armLost: 0, streak: 0, bestStreak: 0, cleanWaves: 0, detSum: 0, detN: 0, earlySite: false, sitesKilled: 0, sorties: 0 } };
+          killKind: {}, armLost: 0, streak: 0, bestStreak: 0, cleanWaves: 0, detSum: 0, detN: 0, earlySite: false, sitesKilled: 0, sorties: 0, jams: 0, ordersOk: 0 } };
   for (const a of MAP.T.assets) {
     const p = MAP.proj(a.lat, a.lon), o = Object.assign({ hp: 100, maxhp: 100, emit: true, rdown: 0 }, ASSET_TYPE[a.type], { id: a.id, type: a.type, x: p[0], y: p[1] });
     Object.defineProperty(o, 'name', { get: () => tr('pl.' + a.name, null, a.name), enumerable: true }); G.assets.push(o);
@@ -184,7 +201,7 @@ function newGame(n) {
   UI.mode = 'idle'; UI.spec = null; UI.ghost = null; UI.hintShown = {}; UI.rosterSig = '';
   if (UI.tab !== 'def' && UI.tab !== 'air' && UI.tab !== 'rad') UI.tab = 'def';
   $('#log').innerHTML = ''; hidePanel(); setHint(null);
-  G.demo = false; G.floats = []; G.craters = []; G.waveStat = []; G.victory = null; G.zoom = 1; G.hl = null; $('#toasts').innerHTML = ''; G.stats.blind = 0; G.stats.dry = 0; G.stats.leakKind = {};
+  G.demo = false; G.floats = []; G.craters = []; G.evIdx = 0; G.order = null; G.waveStat = []; G.victory = null; G.zoom = 1; G.hl = null; $('#toasts').innerHTML = ''; G.stats.blind = 0; G.stats.dry = 0; G.stats.leakKind = {};
   FXS.shake = 0; FXS.flash = 0; FXS.hold = 0; FXS.pulse = 0;
   buildDock(); setPhase('prep'); refreshTop();
   $('#overlay').classList.add('hidden');
@@ -333,6 +350,8 @@ function refreshTop() {
   sn.textContent = G.phase === 'prep' ? '—' : nw ? mmss(Math.max(0, nw.t - G.t)) : (G.threats.length || G.pending.length ? tr('hud.end') : '—');
   sn.classList.toggle('hot', G.phase === 'ops' && !!nw && nw.t - G.t < 6);
   $('#s-cred').textContent = Math.floor(G.credits);
+  { const wx = $('#wx'); if (G.lv.weather !== 'clear') { wx.classList.remove('hidden'); wx.textContent = tr('wx.' + G.lv.weather); } else wx.classList.add('hidden');
+    const od = $('#ord'); if (G.order) { od.classList.remove('hidden'); od.textContent = tr('ev.orderChip', { n: G.order.asset.name, t: mmss(Math.max(0, G.order.until - G.t)) }); } else od.classList.add('hidden'); }
   const ig = integrity(), b = $('#s-integ');
   b.style.width = ig + '%'; b.style.background = ig > 65 ? C.green : ig > 40 ? C.amber : C.red;
 }
@@ -379,7 +398,7 @@ function buildDock() {
       });
       box.appendChild(baseCardEl);
     }
-    const list = !isAir ? ['gun', 'shorad', 'mrad', 'bmd', 'radar'].map(i => SAM[i]) : ['f16', 'f15e', 'e2', 'mq9'].map(i => AIR[i]);
+    const list = !isAir ? ['gun', 'shorad', 'mrad', 'bmd', 'laser', 'ship', 'radar'].map(i => SAM[i]) : ['f16', 'f15e', 'ah64', 'e2', 'tanker', 'mq9'].map(i => AIR[i]);
     let ki = 0;
     for (const D of list) {
       if (G.n < D.unlock) continue;
@@ -391,8 +410,8 @@ function buildDock() {
         const bars = ['drone', 'cruise', 'ballistic', 'arm'].map(k => '<i style="height:' + Math.max(2, (D.pk[k] || 0) * 14) + 'px" title="' + KIND_LBL[k] + '"></i>').join('');
         inner += '<div class="r">' + (D.radar ? tr('card.det', { r: D.radar }) : tr('card.rng', { r: D.range, a: D.ammo })) + '</div>' + (D.radar ? '' : '<div class="pks">' + bars + '</div>');
       }
-      el.innerHTML = inner + '<span class="kb">' + 'QWERT'[ki] + '</span>';
-      el.title = D.name + ' — ' + (D.desc || D.mission) + ' [' + 'QWERT'[ki] + ']'; ki++;
+      el.innerHTML = inner + '<span class="kb">' + 'QWERTYUI'[ki] + '</span>';
+      el.title = D.name + ' — ' + (D.desc || D.mission) + ' [' + 'QWERTYUI'[ki] + ']'; ki++;
       box.appendChild(el);
       const spec = { kind: isAir ? 'air' : 'sam', id: D.id };
       cardRefs[D.id] = { el, spec, D };
@@ -442,8 +461,8 @@ function refreshDock() {
   }
   for (const { el, e } of emRefs) {
     const on = isEmitting(e), tg = isTargeted(e), st = $('[data-st]', el);
-    st.textContent = e.rdown > 0 ? tr('st.damaged', { s: Math.ceil(e.rdown) }) : tg ? tr('st.targeted') : on ? 'ON' : 'OFF';
-    el.classList.toggle('on', on); el.classList.toggle('hot', tg); el.classList.toggle('down', e.rdown > 0);
+    st.textContent = e.rdown > 0 ? tr('st.damaged', { s: Math.ceil(e.rdown) }) : e.jam > 0 ? tr('st.jammed', { s: Math.ceil(e.jam) }) : tg ? tr('st.targeted') : on ? 'ON' : 'OFF';
+    el.classList.toggle('on', on); el.classList.toggle('hot', tg); el.classList.toggle('down', e.rdown > 0); el.classList.toggle('jam', e.jam > 0);
   }
   if (masterEl) { const em = emitters(), any = em.some(isEmitting); $('[data-r]', masterEl).textContent = em.filter(isEmitting).length + '/' + em.length + ' ON'; $('[data-st]', masterEl).textContent = any ? tr('em.silence') : tr('em.allOnBtn'); masterEl.classList.toggle('on', any); }
 }
@@ -502,13 +521,14 @@ function armMode(spec, af) {
   UI.ghost = null; UI.ptr = null;
   if (spec.kind === 'sam') {
     const D = SAM[spec.id];
-    setHint(tr('hint.sam', { name: D.name, desc: D.desc, col: C.dim, kc: KIND_LBL.cruise, kb: KIND_LBL.ballistic, u: Math.round((D.pk.drone || 0) * 100), c: Math.round((D.pk.cruise || 0) * 100), b: Math.round((D.pk.ballistic || 0) * 100), a: Math.round((D.pk.arm || 0) * 100), rush: G.phase === 'ops' ? tr('hint.rush') : '' }), 'mode');
+    setHint(tr('hint.sam', { name: D.name, desc: D.desc, col: C.dim, kc: KIND_LBL.cruise, kb: KIND_LBL.ballistic, u: Math.round((D.pk.drone || 0) * 100), c: Math.round((D.pk.cruise || 0) * 100), b: Math.round((D.pk.ballistic || 0) * 100), a: Math.round((D.pk.arm || 0) * 100), rush: G.phase === 'ops' ? tr('hint.rush') : '', place: D.naval ? tr('hint.placeSea') : tr('hint.placeLand') }), 'mode');
   } else {
     const D = AIR[spec.id];
     let t = tr('hint.air1', { name: D.name });
     if (D.pk.drone) t += tr('hint.air2', { u: Math.round(D.pk.drone * 100), c: Math.round(D.pk.cruise * 100), kc: KIND_LBL.cruise });
     if (D.strike) t += tr('hint.air3', { p: Math.round(D.strike * (1 - G.lv.siteDef) * 100) });
     if (D.radar >= 180) t += tr('hint.air4', { r: D.radar });
+    if (D.refuel) t += tr('hint.air6', { r: D.refuel });
     setHint(t + (af ? ' (' + af.label + ' · ' + af.home.name + ')' : tr('hint.air5')), 'mode');
   }
   refreshDock();
@@ -521,8 +541,11 @@ function cancelMode() {
 }
 
 /* ============================ ENTIDADES ============================ */
-function validPlace(x, y) {
-  if (!onLand(x, y)) return false;
+function validPlace(x, y, D) {
+  if (D && D.naval) {
+    if (onLand(x, y) || x < 20 || x > WW - 20 || y < 20 || y > WH - 20) return false;
+    if (!G.assets.some(a => a.type === 'port' && a.hp > 0 && dst(x, y, a.x, a.y) < PORT_R)) return false;
+  } else if (!onLand(x, y)) return false;
   const sep = 20 / Math.max(.2, view.s);
   for (const a of G.assets) if (dst(x, y, a.x, a.y) < sep) return false;
   for (const u of G.units) if (dst(x, y, u.x, u.y) < sep * .8) return false;
@@ -532,7 +555,7 @@ const placeCost = D => Math.round(D.cost * (G.phase === 'prep' ? 1 : 1.5));   //
 function placeUnit(D, x, y) {
   const cost = placeCost(D);
   if (G.credits < cost) { log(tr('log.noCredits'), 'warn'); return false; }
-  if (!validPlace(x, y)) { log(tr('log.badPos'), 'warn'); return false; }
+  if (!validPlace(x, y, D)) { log(D.naval ? tr('log.badPosSea') : tr('log.badPos'), 'warn'); return false; }
   G.credits -= cost; G.stats.spentCredits += cost;
   const n = G.units.filter(q => q.def === D).length + 1;
   const u = { id: ++G.id, def: D, x, y, ammo: Math.round(D.ammo * (1 + .12 * U('ammo'))), max: Math.round(D.ammo * (1 + .12 * U('ammo'))), cool: .8, roe: 'free', n, name: D.short + '-' + n, emit: true, paid: cost };
@@ -544,7 +567,7 @@ function placeUnit(D, x, y) {
   refreshDock(); refreshTop(); return true;
 }
 function tracks() { return G.threats.filter(t => t.alive); }
-function stationName(a) { return a.mission ? ({ cap: 'CAP', aew: 'AEW', isr: 'ISR', int: tr('mis.int'), strike: tr('mis.strike') })[a.mission.kind] : '—'; }
+function stationName(a) { return a.mission ? ({ cap: 'CAP', aew: 'AEW', isr: 'ISR', tank: 'TANK', int: tr('mis.int'), strike: tr('mis.strike') })[a.mission.kind] : '—'; }
 
 function launchMission(af, m) {
   const b = af.home;
@@ -558,7 +581,7 @@ function launchMission(af, m) {
   return true;
 }
 function missionStation(kind, x, y) { return { kind, x, y, ang: 0, phase: 'transit' }; }
-function stationKind(D) { return D.id === 'e2' ? 'aew' : D.id === 'mq9' ? 'isr' : 'cap'; }
+function stationKind(D) { return D.id === 'e2' ? 'aew' : D.id === 'mq9' ? 'isr' : D.id === 'tanker' ? 'tank' : 'cap'; }
 function bestReady(type, x, y) {      // la célula lista cuya base está más cerca del punto
   if (x === undefined) { const s0 = G.sites.find(q => q.alive) || G.sites[0]; if (s0) { x = s0.x; y = s0.y; } else { x = 500; y = 0; } }
   let best = null, bd = 1e9;
@@ -570,30 +593,53 @@ function strikeP(D, site) { return clamp(D.strike * (1 + .06 * U('strike')) * (1
 function interceptPk(D, t) { return pkMod(pkOf(D.pk, t.kind)); }
 
 /* ============================ SIMULACIÓN ============================ */
+function pickTargetAsset() {
+  const ws = G.assets.filter(a => a.hp > 0); if (!ws.length) return null;
+  let r = Math.random() * ws.reduce((a, b) => a + b.tw, 0), t = ws[0];
+  for (const a of ws) { r -= a.tw; if (r <= 0) { t = a; break; } }
+  return t;
+}
 function spawnWave(w, idx) {
   const alive = G.sites.filter(s => s.alive);
   if (!alive.length) { log(tr('log.waveSupp', { i: idx + 1 }), 'good'); return; }
-  let n = 0;
+  const sites = alive.slice().sort(() => Math.random() - .5), ft = w.focus ? pickTargetAsset() : null, batch = [];
   for (const it of w.items) for (let i = 0; i < it.count; i++) {
-    const s = pick(alive);
-    G.pending.push({ kind: it.kind, site: s, wave: idx, delay: rnd(0, Math.min(5, .3 * it.count + 1)) });
-    n++;
+    const s = ft ? sites[batch.length % Math.min(2, sites.length)] : pick(alive);
+    batch.push({ kind: it.kind, site: s, wave: idx, delay: rnd(0, Math.min(5, .3 * it.count + 1)), target: it.kind === 'arm' ? null : ft, evasive: (it.kind === 'drone' || it.kind === 'decoy') && Math.random() < (G.lv.evasive || 0) });
   }
+  const twoAxis = ft && new Set(batch.map(p => p.site)).size >= 2;
+  if (ft) {   // llegada simultánea de todos los vectores
+    const trav = p => dst(p.site.x, p.site.y, ft.x, ft.y) / THREAT[p.kind].spd, tg = batch.filter(p => p.target), mx = tg.length ? Math.max(...tg.map(trav)) : 0;
+    for (const p of tg) p.delay = mx - trav(p) + rnd(0, 1.5);
+  }
+  G.pending.push(...batch); const n = batch.length;
   G.waveStat[idx] = { total: 0, leaked: 0, done: false };
   log(tr('log.wave', { i: idx + 1, m: G.lv.waves.length, n }), 'warn'); SND.ping();
   const cnt = { drone: 0, cruise: 0, ballistic: 0, arm: 0 }; for (const it of w.items) cnt[it.kind === 'decoy' ? 'drone' : it.kind] += it.count;
-  banner(tr('wave.word') + ' ' + (idx + 1) + '/' + G.lv.waves.length + '<small>' + [cnt.drone && KIND_LBL.drone + ' ×' + cnt.drone, cnt.cruise && KIND_LBL.cruise + ' ×' + cnt.cruise, cnt.ballistic && KIND_LBL.ballistic + ' ×' + cnt.ballistic, cnt.arm && 'ARM ×' + cnt.arm].filter(Boolean).join(' · ') + '</small>');
+  banner(tr('wave.word') + ' ' + (idx + 1) + '/' + G.lv.waves.length + '<small>' + [cnt.drone && KIND_LBL.drone + ' ×' + cnt.drone, cnt.cruise && KIND_LBL.cruise + ' ×' + cnt.cruise, cnt.ballistic && KIND_LBL.ballistic + ' ×' + cnt.ballistic, cnt.arm && 'ARM ×' + cnt.arm].filter(Boolean).join(' · ') + (ft ? '<br>' + tr(twoAxis ? 'wave.twoAxis' : 'wave.focus', { n: ft.name }) : '') + '</small>');
 }
 function emitters() { const L = []; for (const u of G.units) if (u.def.radar || u.def.sensor) L.push(u); for (const a of G.assets) if (a.radar && a.hp > 0) L.push(a); return L; }
+function WX(kind) {   // efecto del clima sobre el alcance de detección
+  const w = G && G.lv && G.lv.weather;
+  if (w === 'fog') return kind === 'air' ? .9 : .75;
+  if (w === 'night') return kind === 'sensor' ? .6 : kind === 'ground' ? .9 : 1;
+  if (w === 'storm') return kind === 'sensor' ? .8 : kind === 'ground' ? .85 : .9;
+  return 1;
+}
+const jamMul = e => e.jam > 0 ? .35 : 1;
+function emRange(e) {
+  if (e.def) { if (e.def.radar) return e.def.radar * radarMul() * WX('ground') * jamMul(e); if (e.def.sensor) return e.def.sensor * WX('sensor') * jamMul(e); return 0; }
+  return e.radar * radarMul() * WX('ground') * jamMul(e);
+}
 const isEmitting = e => e.emit !== false && !(e.rdown > 0);
 const isTargeted = e => G.threats.some(t => t.alive && t.kind === 'arm' && t.target === e);
-const EM_W = { radar: 3, bmd: 2, mrad: 2, shorad: 1.5, gun: .5 };
+const EM_W = { radar: 3, ship: 2.5, bmd: 2, mrad: 2, shorad: 1.5, laser: .6, gun: .5 };
 function toggleEmit(e) {
   if (e.rdown > 0) { log(tr('log.radarDmg', { n: e.name, s: Math.ceil(e.rdown) }), 'warn'); return; }
   e.emit = !e.emit; log(tr('log.emit', { n: e.name, st: e.emit ? 'ON' : 'OFF' }), e.emit ? '' : 'warn'); SND.ping();
   updateDetection(); refreshDock(); if (G.sel && G.sel.ref === e) renderPanel();
 }
-function spawnThreat(kind, s, wave) {
+function spawnThreat(kind, s, wave, ft, ev) {
   const D = THREAT[kind];
   let tgt = null;
   if (kind === 'arm') {
@@ -603,13 +649,11 @@ function spawnThreat(kind, s, wave) {
     let r = Math.random() * em.reduce((a, e) => a + w(e), 0); tgt = em[0];
     for (const e of em) { r -= w(e); if (r <= 0) { tgt = e; break; } }
   } else {
-    const ws = G.assets.filter(a => a.hp > 0); if (!ws.length) return;
-    let r = Math.random() * ws.reduce((a, b) => a + b.tw, 0); tgt = ws[0];
-    for (const a of ws) { r -= a.tw; if (r <= 0) { tgt = a; break; } }
+    tgt = ft && ft.hp > 0 ? ft : pickTargetAsset(); if (!tgt) return;
   }
   const sp = D.spd * rnd(.92, 1.08), x = s.x + rnd(-14, 14), y = s.y + rnd(-14, 14);
   const d = dst(x, y, tgt.x, tgt.y), vx = (tgt.x - x) / d * sp, vy = (tgt.y - y) / d * sp;
-  G.threats.push({ id: ++G.id, kind, D, x, y, vx, vy, spd: sp, target: tgt, alive: true, tracked: kind === 'ballistic', site: s, _surv: 1, wave, len: d });
+  G.threats.push({ id: ++G.id, kind, D, x, y, vx, vy, spd: sp, target: tgt, alive: true, tracked: kind === 'ballistic', site: s, _surv: 1, wave, len: d, evasive: !!ev, age: 0, ph: Math.random() * 6.28 });
   if (G.waveStat[wave]) G.waveStat[wave].total++;
   if (kind === 'ballistic') { log(tr('log.balLaunch', { s: s.name }), 'bad'); SND.ping(); }
   if (kind === 'arm') {
@@ -668,9 +712,9 @@ function impact(t) {
 }
 function updateDetection() {
   const rad = [];
-  for (const a of G.assets) if (a.radar && a.hp > 0 && isEmitting(a)) rad.push([a.x, a.y, a.radar * radarMul()]);
-  for (const u of G.units) { if (!isEmitting(u)) continue; if (u.def.radar) rad.push([u.x, u.y, u.def.radar * radarMul()]); else if (u.def.sensor) rad.push([u.x, u.y, u.def.sensor]); }
-  for (const a of G.air) if (a.state === 'out' || a.state === 'rtb') rad.push([a.x, a.y, a.def.radar * radarMul()]);
+  for (const a of G.assets) if (a.radar && a.hp > 0 && isEmitting(a)) rad.push([a.x, a.y, emRange(a)]);
+  for (const u of G.units) { if (!isEmitting(u)) continue; if (u.def.radar || u.def.sensor) rad.push([u.x, u.y, emRange(u)]); }
+  for (const a of G.air) if (a.state === 'out' || a.state === 'rtb') rad.push([a.x, a.y, a.def.radar * radarMul() * WX('air')]);
   G.radars = rad;
   for (const t of G.threats) {
     if (!t.alive) continue;
@@ -693,6 +737,7 @@ function pickTarget(x, y, range, pkTab, roeSave) {
   return best;
 }
 function fire(x, y, t, pk, spd, life, by, cost) {
+  if (t.evasive && t.seen) pk *= .78;
   G.missiles.push({ x, y, t, pk, spd, life, dx: 0, dy: -1, by });
   t._surv *= (1 - pk); G.stats.fired++; G.stats.spent += cost;
 }
@@ -708,7 +753,7 @@ function updateUnits(dt) {
   }
 }
 function flyTo(a, x, y, dt) {
-  const dx = x - a.x, dy = y - a.y, d = Math.hypot(dx, dy), st = a.def.speed * dt;
+  const dx = x - a.x, dy = y - a.y, d = Math.hypot(dx, dy), st = a.def.speed * dt * (G.lv.weather === 'storm' ? .85 : 1);
   a.hdg = Math.atan2(dy, dx);
   if (d <= st) { a.x = x; a.y = y; return true; }
   a.x += dx / d * st; a.y += dy / d * st; return false;
@@ -805,6 +850,51 @@ function resolveWaves() {
     } else if (!last && pct >= 50) toast(tr('wave.held', { i: i + 1, p: pct }), '');
   }
 }
+function runEvent(ev) {
+  if (ev.kind === 'jam') {
+    const em = emitters().filter(e => isEmitting(e) && !(e.jam > 0)); if (!em.length) return;
+    const w = e => e.def ? (EM_W[e.def.id] || 1) : 2; let r = Math.random() * em.reduce((a, e) => a + w(e), 0), e0 = em[0];
+    for (const e of em) { r -= w(e); if (r <= 0) { e0 = e; break; } }
+    e0.jam = 16; e0.offT = 0; G.stats.jams++;
+    banner(tr('banner.jam', { n: e0.name })); log(tr('log.jam', { n: e0.name }), 'bad'); SND.ping(); buzz(40);
+    if (UI.tab !== 'rad' && UI.mode === 'idle') { UI.tab = 'rad'; buildDock(); }
+  } else if (ev.kind === 'surprise') {
+    const cand = G.assets.filter(a => a.hp > 0 && a.type !== 'capital'), tgt = cand.length ? pick(cand) : pickTargetAsset(); if (!tgt) return;
+    let sx = rnd(120, WW - 120), sy = -8;
+    for (let i = 0; i < 40; i++) { const side = pick(['t', 'l', 'r']), x = side === 'l' ? -8 : side === 'r' ? WW + 8 : rnd(100, WW - 100), y = side === 't' ? -8 : rnd(80, WH * .6); sx = x; sy = y; if (!onLand(clamp(x, 4, WW - 4), clamp(y, 4, WH - 4))) break; }
+    const site = { x: sx, y: sy, alive: true, name: tr('surprise.name') };
+    for (let i = 0; i < ev.n; i++) G.pending.push({ kind: 'drone', site, wave: -1, delay: rnd(0, 3), target: tgt, evasive: false });
+    banner(tr('banner.surprise', { n: tgt.name })); log(tr('log.surprise', { n: tgt.name }), 'bad'); SND.ping(); buzz(50);
+  } else if (ev.kind === 'reinforce') {
+    const bs = airbases().filter(b => b.hp > 0 && baseCount(b) < baseCap());
+    if (bs.length) {
+      const sd = b => Math.min(...G.sites.map(s => dst(b.x, b.y, s.x, s.y))); bs.sort((a, b) => sd(b) - sd(a));
+      const type = G.n >= 7 ? 'f15e' : 'f16'; G.air.push(mkAir(type, ++G.id, bs[0]));
+      banner(tr('banner.reinforce', { a: AIR[type].short, b: bs[0].name })); buildDock();
+    } else { G.credits += 150; banner(tr('banner.reinforceCr', { c: 150 })); }
+    SND.chime();
+  } else if (ev.kind === 'order') {
+    const cand = G.assets.filter(a => a.hp > 0), tgt = cand.slice().sort((a, b) => b.tw - a.tw)[0]; if (!tgt || G.order) return;
+    G.order = { asset: tgt, until: G.t + 40, hp0: tgt.hp };
+    banner(tr('banner.order', { n: tgt.name })); log(tr('log.order', { n: tgt.name }), 'warn'); SND.ping();
+  }
+}
+function updateEvents(dt) {
+  while (G.evIdx < G.lv.events.length && G.t >= G.lv.events[G.evIdx].t) runEvent(G.lv.events[G.evIdx++]);
+  for (const e of emitters()) if (e.jam > 0) {
+    if (!isEmitting(e)) { e.offT = (e.offT || 0) + dt; if (e.offT >= 2) { e.jam = 0; log(tr('log.retuned', { n: e.name }), 'good'); } } else { e.offT = 0; e.jam = Math.max(0, e.jam - dt); }
+  }
+  if (G.order && (G.t >= G.order.until || G.order.asset.hp <= 0)) {
+    const o = G.order; G.order = null;
+    if (o.asset.hp > 0 && o.asset.hp >= o.hp0 - .01) { G.credits += 120; G.stats.ordersOk++; toast(tr('ev.orderOk', { n: o.asset.name }), 'gold'); SND.chime(); }
+    else toast(tr('ev.orderFail', { n: o.asset.name }), 'warn');
+  }
+  // reabastecimiento en vuelo
+  for (const o of G.air) o.tank = false;
+  for (const t of G.air) if (t.def.refuel && t.state === 'out' && t.mission && t.mission.phase === 'station') {
+    for (const o of G.air) if (o !== t && !o.def.refuel && (o.state === 'out' || o.state === 'rtb') && o.fuel < o.def.fuel && dst(o.x, o.y, t.x, t.y) <= t.def.refuel) { o.fuel = Math.min(o.def.fuel, o.fuel + 10 * dt); o.tank = true; }
+  }
+}
 function step(dt) {
   G.t += dt;
   G.credits += G.lv.income * dt;
@@ -812,12 +902,16 @@ function step(dt) {
   while (G.waveIdx < G.lv.waves.length && G.t >= G.lv.waves[G.waveIdx].t) { spawnWave(G.lv.waves[G.waveIdx], G.waveIdx); G.waveIdx++; }
   for (let i = G.pending.length - 1; i >= 0; i--) {
     const p = G.pending[i]; p.delay -= dt;
-    if (p.delay <= 0) { if (p.site.alive) spawnThreat(p.kind, p.site, p.wave); G.pending.splice(i, 1); }
+    if (p.delay <= 0) { if (p.site.alive) spawnThreat(p.kind, p.site, p.wave, p.target, p.evasive); G.pending.splice(i, 1); }
   }
   for (const t of G.threats) {
     if (!t.alive) continue;
     const d = dst(t.x, t.y, t.target.x, t.target.y);
-    if (d <= t.spd * dt + 3) impact(t); else { t.x += t.vx * dt; t.y += t.vy * dt; }
+    if (d <= t.spd * dt + 3) impact(t);
+    else {
+      t.x += t.vx * dt; t.y += t.vy * dt;
+      if (t.evasive && t.seen) { t.age += dt; const lat = t.spd * .9 * Math.cos(t.age * 3.2 + t.ph) * clamp(d / 150, 0, 1); t.x += (-t.vy / t.spd) * lat * dt; t.y += (t.vx / t.spd) * lat * dt; }
+    }
     t._surv = 1;
   }
   for (const m of G.missiles) if (m.t.alive) m.t._surv *= (1 - m.pk);
@@ -828,6 +922,7 @@ function step(dt) {
     else { t.idT = 0; t.hist = []; }
   }
   for (const a of G.air) if (a.state === 'out' || a.state === 'rtb') { if (G.t - (a.ht || 0) >= 1) { a.ht = G.t; (a.hist = a.hist || []).push([a.x, a.y]); if (a.hist.length > 7) a.hist.shift(); } } else a.hist = [];
+  updateEvents(dt);
   updateUnits(dt);
   for (const a of G.air.slice()) updateAir(a, dt);
   updateMissiles(dt);
@@ -872,7 +967,7 @@ function select(sel) { G.sel = sel; renderPanel(); }
 const pb = (v, mx, col) => '<div class="pb"><i style="width:' + clamp(v / mx * 100, 0, 100) + '%' + (col ? ';background:' + col : '') + '"></i></div>';
 const refund = u => G.phase === 'prep' ? (u.paid || u.def.cost) : Math.round(u.def.cost * .6);
 const fwdDist = b => Math.round(Math.min(...G.sites.filter(q => q.alive).map(q => dst(b.x, b.y, q.x, q.y)), 9999));
-function emitTxt(e) { return e.rdown > 0 ? tr('st.damaged', { s: Math.ceil(e.rdown) }) : isEmitting(e) ? tr('st.emitting') : tr('st.off'); }
+function emitTxt(e) { return e.rdown > 0 ? tr('st.damaged', { s: Math.ceil(e.rdown) }) : e.jam > 0 ? tr('st.jammed', { s: Math.ceil(e.jam) }) : isEmitting(e) ? tr('st.emitting') : tr('st.off'); }
 function renderPanel() {
   const p = $('#panel'), s = G && G.sel;
   if (!s || UI.mode !== 'idle') { p.classList.add('hidden'); return; }
@@ -923,7 +1018,7 @@ function renderPanel() {
     const enr = G.air.filter(a => a.mission && a.mission.kind === 'strike' && a.mission.site === r);
     let any = false;
     if (G.phase === 'prep') h += '<div class="sub">' + tr('p.siteprep') + '</div>';
-    else for (const type of ['f15e', 'f16', 'mq9']) {
+    else for (const type of ['f15e', 'f16', 'ah64', 'mq9']) {
       const D = AIR[type]; if (G.n < D.unlock) continue;
       const rc = readyCount(type), p = strikeP(D, r), bs = bestReady(type, r.x, r.y);
       let acc = p; for (const e of enr) acc = 1 - (1 - acc) * (1 - strikeP(e.def, r));
@@ -937,7 +1032,7 @@ function renderPanel() {
     h = '<h3>H-' + String(r.id).padStart(3, '0') + ' ' + r.D.tag + '</h3><div class="sub">' + tr('p.threatSub', { name: r.kind === 'decoy' ? THREAT.drone.name : r.D.name, tgt: tgt.name }) + '</div>' +
       '<div class="row"><span>' + tr('p.impactIn') + '</span><span>' + Math.ceil(eta) + 's</span></div>';
     if (r.kind === 'arm') h += '<div class="sub">' + tr('p.armHint', { n: tgt.name }) + '</div><button class="pbtn danger" data-a="emit-t">' + tgt.name + ': ' + (isEmitting(tgt) ? tr('p.turnOff') : tr('p.turnOn')) + '</button>';
-    for (const type of ['f16', 'f15e']) {
+    for (const type of ['f16', 'f15e', 'ah64']) {
       const D = AIR[type]; if (G.n < D.unlock) continue;
       const pk = interceptPk(D, r), rc = readyCount(type), bs = bestReady(type, r.x, r.y);
       const t2 = bs ? dst(bs.home.x, bs.home.y, r.x, r.y) / D.speed : 0;
@@ -971,7 +1066,7 @@ function setGhost(cx, cy, ptype, dragging) {
   if (cx < r.left || cx > r.right || cy < r.top || cy > r.bottom) { UI.ghost = null; return; }
   const off = ptype === 'mouse' ? 0 : 46;
   const g = { x: wx, y: wy - off / view.s, valid: true, raw: [sx, sy], target: null };
-  if (UI.mode === 'place') g.valid = validPlace(g.x, g.y);
+  if (UI.mode === 'place') g.valid = validPlace(g.x, g.y, SAM[UI.spec.id]);
   else if (UI.mode === 'mission') {
     const D = AIR[UI.spec.id], tg = pickTargetFor(D, sx, sy);
     if (tg) { g.target = tg; g.x = wx; g.y = wy; }
@@ -982,7 +1077,7 @@ function commitGhost() {
   const g = UI.ghost; if (!g || !G || G.over) return false;
   if (UI.mode === 'place') {
     const ok = placeUnit(SAM[UI.spec.id], g.x, g.y);
-    if (!ok && !g.valid) log(tr('log.badPos'), 'warn');
+    if (!ok && !g.valid) log(SAM[UI.spec.id].naval ? tr('log.badPosSea') : tr('log.badPos'), 'warn');
     return ok;
   }
   if (UI.mode === 'mission') {
@@ -1041,7 +1136,7 @@ function initPointer() {
     if (!G || !$('#overlay').classList.contains('hidden')) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key, ids = Object.keys(cardRefs);
-    if ('qwert'.includes(k) && k.length === 1 && ids['qwert'.indexOf(k)]) { const id = ids['qwert'.indexOf(k)], sp = cardRefs[id].spec; if (UI.spec && UI.spec.id === id && UI.mode !== 'idle') cancelMode(); else if (canArm(sp)) armMode(sp); return; }
+    if ('qwertyui'.includes(k) && k.length === 1 && ids['qwertyui'.indexOf(k)]) { const id = ids['qwertyui'.indexOf(k)], sp = cardRefs[id].spec; if (UI.spec && UI.spec.id === id && UI.mode !== 'idle') cancelMode(); else if (canArm(sp)) armMode(sp); return; }
     if (k === 'Tab') { e.preventDefault(); UI.tab = ({ def: 'air', air: 'rad', rad: 'def' })[UI.tab]; cancelMode(); buildDock(); return; }
     if (k === 'f') { restockAll(); return; }
     if (k === 'm') { showPause(); return; }
@@ -1191,12 +1286,17 @@ function drawAsset(a) {
     if (a.type === 'airbase') armPulse(a, R * 1.7);
   });
 }
+function navalSym(r, col) {   // buque de superficie: círculo (NTDS/APP-6) con silueta de casco
+  ctx.beginPath(); ctx.arc(0, 0, r * .95, 0, 7); ctx.fillStyle = 'rgba(62,166,255,.2)'; ctx.fill(); ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-r * .6, r * .1); ctx.lineTo(r * .6, r * .1); ctx.lineTo(r * .4, r * .4); ctx.lineTo(-r * .45, r * .4); ctx.closePath(); ctx.moveTo(-r * .1, r * .1); ctx.lineTo(-r * .1, -r * .35); ctx.lineTo(r * .15, -r * .35); ctx.lineTo(r * .15, r * .1); ctx.stroke();
+}
 function drawUnit(u) {
   const R = view.R, D = u.def, off = !isEmitting(u) && (D.radar || D.sensor);
   sym(u.x, u.y, () => {
     const bo = fontReady ? R * .85 : R * .8;
     if (off) ctx.globalAlpha = .45;
-    if (fontReady) ntdsGlyph(NT.landF, cosCache.tint, R * 2.0);
+    if (D.naval) navalSym(R, cosCache.tint);
+    else if (fontReady) ntdsGlyph(NT.landF, cosCache.tint, R * 2.0);
     else { frameGround(R, C.blue); if (D.radar) glyphRadar(R, C.blue); else glyphAD(R, C.blue, AD_MOD[D.id]); }
     ctx.globalAlpha = 1;
     if (D.range) {
@@ -1247,7 +1347,7 @@ function drawThreat(t) {
     } else frameUnknownAir(R);
     }
     const tag = known ? t.D.tag : 'UNK';
-    if (known && (t.kind === 'cruise' || t.kind === 'ballistic' || t.kind === 'arm') || sel || !known) label(tag + (t.lost ? ' ' + tr('lbl.noLock') : '') + (sel ? ' H-' + t.id : ''), 0, R * .5 + 12, known ? '#ff9a9a' : Y, 8);
+    if (known && (t.kind === 'cruise' || t.kind === 'ballistic' || t.kind === 'arm') || sel || !known || t.evasive) label(tag + (known && t.evasive ? '~' : '') + (t.lost ? ' ' + tr('lbl.noLock') : '') + (sel ? ' H-' + t.id : ''), 0, R * .5 + 12, known ? '#ff9a9a' : Y, 8);
     if (sel) bracket(R * 2);
   });
   if (sel) { ctx.save(); ctx.strokeStyle = 'rgba(255,176,32,.5)'; ctx.setLineDash([4 / view.s, 4 / view.s]); ctx.lineWidth = 1 / view.s; ctx.beginPath(); ctx.moveTo(t.x, t.y); ctx.lineTo(t.target.x, t.target.y); ctx.stroke(); ctx.restore(); }
@@ -1270,6 +1370,7 @@ function drawAir(a) {
     }
     if (m.phase === 'station' || m.kind === 'cap' || m.kind === 'aew' || m.kind === 'isr') {
       ring(m.x, m.y, a.def.engage || a.def.radar * .5, C.blue, [3, 5], .22, 1);
+      if (a.def.refuel) ring(a.x, a.y, a.def.refuel, C.green, [3, 4], .35, 1);
       if (a.def.radar >= 180) ring(a.x, a.y, a.def.radar, C.cyan, [2, 5], .28, 1);
     }
   }
@@ -1280,6 +1381,7 @@ function drawAir(a) {
     if (!fontReady) { ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(Math.cos(a.hdg) * R * 1.1, Math.sin(a.hdg) * R * 1.1); ctx.lineTo(Math.cos(a.hdg) * R * 2.3, Math.sin(a.hdg) * R * 2.3); ctx.stroke(); }
     airSymbol(a.type, R, a.state === 'rtb' ? '#9fb7c8' : cosCache.tint, a.hdg);
     label(a.label, 0, R * .5 + 12, '#8fc3ee', 8);
+    if (a.tank) { ctx.strokeStyle = C.green; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, 0, R * 1.7, 0, 7); ctx.stroke(); }
     if (sel) bracket(R * 1.6);
   });
 }
@@ -1294,7 +1396,7 @@ function drawGhost() {
     const D = SAM[UI.spec.id], col = g.valid ? C.cyan : C.red;
     if (D.range) ring(g.x, g.y, D.range, col, [6, 4], .8, 1.4);
     if (D.radar) ring(g.x, g.y, D.radar, col, [2, 4], .8, 1.4);
-    sym(g.x, g.y, () => { ctx.globalAlpha = .85; if (fontReady) ntdsGlyph(NT.landF, col, view.R * 2.0); else { frameGround(view.R, col); if (D.radar) glyphRadar(view.R, col); else glyphAD(view.R, col, AD_MOD[D.id]); } });
+    sym(g.x, g.y, () => { ctx.globalAlpha = .85; if (D.naval) navalSym(view.R, col); else if (fontReady) ntdsGlyph(NT.landF, col, view.R * 2.0); else { frameGround(view.R, col); if (D.radar) glyphRadar(view.R, col); else glyphAD(view.R, col, AD_MOD[D.id]); } });
     if (g.raw && UI.ptr && UI.ptr.type !== 'mouse') { ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1 / view.s; ctx.beginPath(); ctx.moveTo(g.x, g.y); ctx.lineTo((g.raw[0] - view.ox) / view.s, (g.raw[1] - view.oy) / view.s); ctx.stroke(); ctx.restore(); }
   } else {
     const D = AIR[UI.spec.id], b = ghostBase(D, g);
@@ -1319,14 +1421,21 @@ function draw() {
   if (G && G.zoom > 1.001 && G.hl) { const zx = G.hl.x * view.s + view.ox, zy = G.hl.y * view.s + view.oy; ctx.translate(zx, zy); ctx.scale(G.zoom, G.zoom); ctx.translate(-zx, -zy); }
   ctx.drawImage(bg, 0, 0, view.w, view.h);
   if (!G) return;
+  { const wm = G.lv.weather, now = performance.now();
+    if (wm === 'night') { ctx.fillStyle = 'rgba(2,6,22,.4)'; ctx.fillRect(0, 0, view.w, view.h); }
+    else if (wm === 'fog') {
+      ctx.fillStyle = 'rgba(165,185,200,.14)'; ctx.fillRect(0, 0, view.w, view.h);
+      for (let i = 0; i < 4; i++) { const x = ((now * .012 * (i + 1) + i * 250) % (view.w + 400)) - 200, y = view.h * (.15 + .22 * i), g2 = ctx.createRadialGradient(x, y, 10, x, y, 170); g2.addColorStop(0, 'rgba(190,205,215,.2)'); g2.addColorStop(1, 'rgba(190,205,215,0)'); ctx.fillStyle = g2; ctx.fillRect(x - 170, y - 170, 340, 340); }
+    } else if (wm === 'storm') { ctx.fillStyle = 'rgba(10,16,30,.28)'; ctx.fillRect(0, 0, view.w, view.h); }
+  }
   ctx.save(); ctx.translate(view.ox, view.oy); ctx.scale(view.s, view.s);
   const selU = G.sel && G.sel.kind === 'unit' ? G.sel.ref : null;
   // coberturas
   for (const u of G.units) {
     if (u.def.range && (SET.rings || u === selU)) ring(u.x, u.y, u.def.range, C.blue, [5, 5], u === selU ? .85 : .26, u === selU ? 1.6 : 1);
-    if (u.def.radar && isEmitting(u)) ring(u.x, u.y, u.def.radar * radarMul(), C.cyan, [2, 5], u === selU ? .8 : .22, 1);
+    if (u.def.radar && isEmitting(u)) ring(u.x, u.y, emRange(u), u.jam > 0 ? C.amber : C.cyan, [2, 5], u === selU ? .8 : .22, 1);
   }
-  for (const b of G.assets) if (b.radar && b.hp > 0 && isEmitting(b)) ring(b.x, b.y, b.radar * radarMul(), C.cyan, [2, 5], .18, 1);
+  for (const b of G.assets) if (b.radar && b.hp > 0 && isEmitting(b)) ring(b.x, b.y, emRange(b), b.jam > 0 ? C.amber : C.cyan, [2, 5], .18, 1);
   for (const s of G.sites) if (s.alive) ring(s.x, s.y, SITE_AA, C.red, [2, 5], .25, 1);
   if (G.phase === 'prep') {   // ejes de amenaza (inteligencia previa)
     ctx.save(); ctx.setLineDash([4 / view.s, 7 / view.s]); ctx.lineWidth = 1 / view.s; ctx.strokeStyle = C.red;
@@ -1340,6 +1449,8 @@ function draw() {
   });
   for (const s of G.sites) if (s.alive) drawSite(s);
   for (const a of G.assets) drawAsset(a);
+  if (G.order) { const oa = G.order.asset; ring(oa.x, oa.y, view.R * 3.1 / view.s, C.amber, [5, 4], .55 + .25 * Math.sin(performance.now() / 250), 1.6); }
+  for (const e of emitters()) if (e.jam > 0) ring(e.x, e.y, view.R * (1.8 + .3 * Math.sin(performance.now() / 60)) / view.s, C.red, [2, 3], .8, 1.4);
   if (G.victory && G.hl) sym(G.hl.x, G.hl.y, () => { bracket(view.R * 2.6); label('★ ' + tr('vic.best', { n: G.hl.name, hp: Math.round(G.hl.hp) }), 0, -view.R * 3.4, C.amber, 11); });
   for (const u of G.units) drawUnit(u);
   for (const t of G.threats) if (t.alive && t.tracked) drawThreat(t);
@@ -1360,6 +1471,12 @@ function draw() {
   drawGhost();
   if (FXS.pulse > 0) { const cp = capital(); if (cp) { ctx.save(); ctx.strokeStyle = 'rgba(53,208,127,' + (.75 * FXS.pulse) + ')'; ctx.lineWidth = 3 / view.s; ctx.beginPath(); ctx.arc(cp.x, cp.y, (1 - FXS.pulse) * 1400, 0, 7); ctx.stroke(); ctx.restore(); } }
   ctx.restore();
+  if (G.lv.weather === 'storm') {
+    const now = performance.now(); ctx.save(); ctx.strokeStyle = 'rgba(170,200,230,.28)'; ctx.lineWidth = 1; ctx.beginPath();
+    for (let i = 0; i < 70; i++) { const x = (i * 97 + now * .35) % (view.w + 60), y = (i * 53 + now * 1.4) % (view.h + 40); ctx.moveTo(x, y); ctx.lineTo(x - 5, y + 13); }
+    ctx.stroke(); ctx.restore();
+  }
+  if (FXS.lt > 0) { ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0); ctx.fillStyle = 'rgba(220,232,255,' + (FXS.lt * .45) + ')'; ctx.fillRect(0, 0, view.w, view.h); }
   if (FXS.flash > 0) {
     ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
     const gr = ctx.createRadialGradient(view.w / 2, view.h / 2, Math.min(view.w, view.h) * .3, view.w / 2, view.h / 2, Math.max(view.w, view.h) * .7);
@@ -1384,6 +1501,7 @@ const MEDALS = [
   { id: 'surgeon', pm: 6, avail: () => true, ok: s => s.kills >= 6 && s.value > 0 && s.spent / s.value <= SURG },
   { id: 'eagle', pm: 6, avail: () => true, ok: s => s.detN >= 6 && s.detSum / s.detN >= EAGLE },
   { id: 'silence', pm: 8, avail: lv => lv.n >= 4, ok: s => s.armLost >= 1 && !(s.leakKind && s.leakKind.arm) },
+  { id: 'mettle', pm: 10, avail: lv => lv.diff && lv.diff !== 'normal', ok: () => true },
   { id: 'preempt', pm: 8, avail: lv => lv.waves.length >= 4, ok: s => s.earlySite }
 ];
 const medalsFor = lv => MEDALS.filter(m => m.avail(lv));
@@ -1403,13 +1521,16 @@ const securedCount = p => { let c = 0; for (let k = 0; k < TL(); k++) if (secure
 const starsTotal = p => Object.values(p.stars).reduce((a, b) => a + b, 0);
 const medalCount = p => Object.values(p.medals).reduce((a, m) => a + Object.keys(m).length, 0);
 function effLife(p) {   // contadores de por vida + el nivel en curso (para logros en directo)
-  const L = Object.assign({ kills: 0, bal: 0, cruise: 0, drone: 0, arm: 0, armLost: 0, sites: 0, sorties: 0, cleanWaves: 0, won: 0, played: 0, flawless: 0, econ: 0, narrow: 0, bestStreak: 0 }, p.life);
+  const L = Object.assign({ kills: 0, bal: 0, cruise: 0, drone: 0, arm: 0, armLost: 0, sites: 0, sorties: 0, cleanWaves: 0, won: 0, played: 0, flawless: 0, econ: 0, narrow: 0, bestStreak: 0, orders: 0, winVet: 0, winExp: 0 }, p.life);
   if (G && !G.over && !G.demo) {
     const s = G.stats; L.kills += s.kills; L.bal += s.killKind.ballistic || 0; L.armLost += s.armLost; L.sites += s.sitesKilled; L.cleanWaves += s.cleanWaves; L.bestStreak = Math.max(L.bestStreak, s.bestStreak);
   }
   return L;
 }
 const ACH = [
+  { id: 'orders5', pm: 15, goal: 5, v: (p, L) => L.orders },
+  { id: 'veteran', pm: 20, goal: 1, v: (p, L) => L.winVet + L.winExp },
+  { id: 'expert', pm: 40, goal: 1, v: (p, L) => L.winExp },
   { id: 'first', pm: 10, goal: 1, v: (p, L) => L.won },
   { id: 'kills100', pm: 5, goal: 100, v: (p, L) => L.kills },
   { id: 'kills1000', pm: 30, goal: 1000, v: (p, L) => L.kills },
@@ -1572,14 +1693,16 @@ function showBrief(n) {
   const lv = makeLevel(n), c = briefCounts(lv);
   const est = lv.spawnWin + 28;
   const got = progress().medals[n] || {};
+  const diffSeg = '<div class="opt"><span>' + tr('br.diff') + '</span><div class="seg">' + ['normal', 'veteran', 'expert'].map(d => '<button class="pbtn' + (SET.diff === d ? ' sel' : '') + '" data-d="' + d + '">' + tr('diff.' + d) + '</button>').join('') + '</div></div>';
   const mdl = '<div class="mdl"><b>' + tr('br.medals') + '</b>' + medalsFor(lv).map(m => '<div class="mrow' + (got[m.id] ? ' got' : '') + '"><span>' + (got[m.id] ? '✔ ' : '◇ ') + tr('medal.' + m.id) + ' <small>' + tr('medal.' + m.id + '.d') + '</small></span><span class="amber">+' + m.pm + '</span></div>').join('') + '</div>';
   const rows = [[tr('br.uas'), c.drone + c.decoy], [tr('br.cruise'), c.cruise], [tr('br.bal'), c.ballistic], [tr('br.arm'), c.arm]].filter(r => r[1] > 0)
     .map(r => '<span>' + r[0] + '</span><span>' + r[1] + '</span>').join('');
   const o = showOverlay('<h2>' + tr('br.title', { n, name: lv.name.toUpperCase() }) + '</h2><p>' + tr('br.intro') + '</p>' +
-    '<div class="kv"><span>' + tr('br.theater') + '</span><span>' + (THEATERS[lv.theater] ? tr('th.' + THEATERS[lv.theater].id + '.name') : '') + '</span><span>' + tr('br.dur') + '</span><span>' + mmss(est) + '</span><span>' + tr('br.waves') + '</span><span>' + lv.waves.length + '</span><span>' + tr('br.sites') + '</span><span>' + lv.nSites + '</span><span>' + tr('br.credits') + '</span><span>' + lv.credits + '</span>' + rows + '</div>' +
+    '<div class="kv"><span>' + tr('br.theater') + '</span><span>' + (THEATERS[lv.theater] ? tr('th.' + THEATERS[lv.theater].id + '.name') : '') + '</span><span>' + tr('br.dur') + '</span><span>' + mmss(est) + '</span><span>' + tr('br.waves') + '</span><span>' + lv.waves.length + '</span><span>' + tr('br.sites') + '</span><span>' + lv.nSites + '</span><span>' + tr('br.credits') + '</span><span>' + lv.credits + '</span><span>' + tr('br.weather') + '</span><span>' + tr(lv.weather === 'clear' ? 'wx.clear' : 'wx.' + lv.weather) + '</span>' + rows + '</div>' + (lv.weather !== 'clear' ? '<p class="sub">' + tr('wx.' + lv.weather + '.d') + '</p>' : '') + diffSeg +
     mdl + '<p class="sub">' + tr('br.phases') + '</p>' +
     '<button class="big go" data-a="go">' + tr('br.go') + '</button><button class="big" data-a="back">' + tr('br.back') + '</button>');
   $('[data-a=go]', o).onclick = () => newGame(n); $('[data-a=back]', o).onclick = showLevels;
+  $$('[data-d]', o).forEach(b => b.onclick = () => { SET.diff = b.dataset.d; saveSet(); showBrief(n); });
 }
 function showHelp(back) {
   const o = showOverlay('<h2>' + tr('help.title') + '</h2><ul>' + [1, 2, 3, 4, 5, 6, 7, 8].map(i => '<li>' + tr('help.' + i, { b: C.blue, r: C.red, y: Y }) + '</li>').join('') + '</ul>' +
@@ -1641,9 +1764,11 @@ function showSettings(back) {
   const onoff = (k, name) => '<div class="opt"><span>' + name + '</span><button class="pbtn" data-k="' + k + '">' + (SET[k] ? tr('set.on') : tr('set.off')) + '</button></div>';
   const seg = [[.85, 'S'], [1, 'M'], [1.25, 'L']].map(([v, l]) => '<button class="pbtn' + (SET.scale === v ? ' sel' : '') + '" data-sc="' + v + '">' + l + '</button>').join('');
   const langSeg = I18N.langs.map(l => '<button class="pbtn' + (I18N.lang === l.code ? ' sel' : '') + '" data-lang="' + l.code + '">' + l.name + '</button>').join('');
-  const o = showOverlay('<h2>' + tr('set.title') + '</h2><div class="opt"><span>' + tr('set.lang') + '</span><div class="seg">' + langSeg + '</div></div>' + onoff('snd', tr('set.snd')) + onoff('vib', tr('set.vib')) + onoff('rings', tr('set.rings')) +
+  const diffSeg = ['normal', 'veteran', 'expert'].map(d => '<button class="pbtn' + (SET.diff === d ? ' sel' : '') + '" data-d="' + d + '">' + tr('diff.' + d) + '</button>').join('');
+  const o = showOverlay('<h2>' + tr('set.title') + '</h2><div class="opt"><span>' + tr('set.diff') + '</span><div class="seg">' + diffSeg + '</div></div><div class="opt"><span>' + tr('set.lang') + '</span><div class="seg">' + langSeg + '</div></div>' + onoff('snd', tr('set.snd')) + onoff('vib', tr('set.vib')) + onoff('rings', tr('set.rings')) +
     '<div class="opt"><span>' + tr('set.scale') + '</span><div class="seg">' + seg + '</div></div>' +
     '<button class="big" data-a="fs">' + tr('set.fs') + '</button><button class="big" data-a="tut">' + tr('set.tut') + '</button><button class="big" data-a="reset">' + tr('set.reset') + '</button><button class="big" data-a="back">' + tr('back') + '</button>');
+  $$('[data-d]', o).forEach(b => b.onclick = () => { SET.diff = b.dataset.d; saveSet(); showSettings(back); });
   $$('[data-lang]', o).forEach(b => b.onclick = () => { I18N.setLang(b.dataset.lang); showSettings(back); });
   $$('[data-k]', o).forEach(b => b.onclick = () => { const k = b.dataset.k; SET[k] = !SET[k]; if (k === 'snd') { SND.on = SET.snd; SND.init(); } saveSet(); showSettings(back); });
   $$('[data-sc]', o).forEach(b => b.onclick = () => { SET.scale = +b.dataset.sc; saveSet(); resize(); showSettings(back); });
@@ -1680,7 +1805,7 @@ function endLevel(win) {
   const got = (p.medals[n] = p.medals[n] || {});
   const medals = medalsFor(lv).map(m => { const ok = win && m.ok(s, lv), isNew = ok && !got[m.id]; if (isNew) got[m.id] = 1; return { m, ok, isNew }; });
   const medalPM = medals.reduce((a, x) => a + (x.isNew ? x.m.pm : 0), 0);
-  const pm = (win ? 15 + 10 * st + (firstWin ? 15 : 0) : 0) + Math.floor(s.kills / 8) + medalPM;
+  const pm = Math.round(((win ? 15 + 10 * st + (firstWin ? 15 : 0) : 0) + Math.floor(s.kills / 8)) * (DIFF[lv.diff] || DIFF.normal).pm) + medalPM;
   // récords por nivel
   const recs = [];
   if (win) {
@@ -1694,7 +1819,8 @@ function endLevel(win) {
   const L = p.life, add = (k, v) => { L[k] = (L[k] || 0) + v; };
   add('played', 1); add('kills', s.kills); add('bal', s.killKind.ballistic || 0); add('cruise', s.killKind.cruise || 0); add('drone', s.killKind.drone || 0); add('arm', s.killKind.arm || 0);
   add('armLost', s.armLost); add('sites', s.sitesKilled); add('sorties', s.sorties); add('cleanWaves', s.cleanWaves); L.bestStreak = Math.max(L.bestStreak || 0, s.bestStreak);
-  if (win) { add('won', 1); if (s.leaked === 0) add('flawless', 1); if (econ) add('econ', 1); if (ig < 40) add('narrow', 1); p.stars[n] = Math.max(p.stars[n] || 0, st); }
+  add('orders', s.ordersOk);
+  if (win) { add('won', 1); if (lv.diff === 'veteran') add('winVet', 1); if (lv.diff === 'expert') add('winExp', 1); if (s.leaked === 0) add('flawless', 1); if (econ) add('econ', 1); if (ig < 40) add('narrow', 1); p.stars[n] = Math.max(p.stars[n] || 0, st); }
   p.cp += pm; savePut(p);
   const ach = checkAch(true), unl = win ? unlockCards(n) : [];
   if (G.tut) endTut();
@@ -1775,7 +1901,8 @@ function frame(now) {
     let rem = dt * G.speed;
     while (rem > 0 && !G.over) { const h = Math.min(rem, 1 / 30); step(h); rem -= h; }
   } else if (G && !G.over && FXS.hold > 0) { /* hitstop */ } else if (G && G.over) { const fd = G.victory ? dt * .5 : dt; if (G.victory) victoryTick(dt); for (const e of G.fx) e.t += fd; G.fx = G.fx.filter(e => e.t < e.dur); G.floats.forEach(f => f.t += fd); G.floats = G.floats.filter(f => f.t < 1.1); }
-  FXS.shake = Math.max(0, FXS.shake - dt * 1.8); FXS.flash = Math.max(0, FXS.flash - dt * .9);
+  FXS.shake = Math.max(0, FXS.shake - dt * 1.8); FXS.flash = Math.max(0, FXS.flash - dt * .9); FXS.lt = Math.max(0, FXS.lt - dt * 2.5);
+  if (G && !G.over && G.speed > 0 && G.lv.weather === 'storm' && Math.random() < dt * .12) FXS.lt = .6;
   draw();
   requestAnimationFrame(frame);
 }
@@ -1823,6 +1950,6 @@ function init() {
   requestAnimationFrame(t => { last = t; frame(t); });
   const m = /[?&]level=(\d+)/.exec(location.search); if (m) { $('#overlay').classList.add('hidden'); newGame(+m[1]); }
 }
-window.__C2 = { MEDALS, ACH, COS, checkAch, effLife, medalsFor, endLevel, showEnd, showLevels, showAch, showCosmetics, progress, I18N, tr, applyLang, SET, restockAll, showPause, showSettings, tutTick, TUT, get G() { return G; }, get MAP() { return MAP; }, newGame, step, setSpeed, startOps, SAM, AIR, THREAT, makeLevel, placeUnit, launchMission, missionStation, firstReady, bestReady, inPoly, onLand, toggleEmit, emitters, isEmitting, airbases, validPlace, resize, view, UI, select, buildDock, refreshDock };
+window.__C2 = { DIFF, WEATHER, WX, emRange, runEvent, spawnWave, MEDALS, ACH, COS, checkAch, effLife, medalsFor, endLevel, showEnd, showLevels, showAch, showCosmetics, progress, I18N, tr, applyLang, SET, restockAll, showPause, showSettings, tutTick, TUT, get G() { return G; }, get MAP() { return MAP; }, newGame, step, setSpeed, startOps, SAM, AIR, THREAT, makeLevel, placeUnit, launchMission, missionStation, firstReady, bestReady, inPoly, onLand, toggleEmit, emitters, isEmitting, airbases, validPlace, resize, view, UI, select, buildDock, refreshDock };
 init();
 })();

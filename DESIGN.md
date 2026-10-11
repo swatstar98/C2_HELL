@@ -21,6 +21,15 @@ npx cap add android && npx cap sync && npx cap open android
 - **i18n** (ES + EN, ampliable): `i18n.js` (`I18N.t(clave, {param})`, detección por navegador/`?lang=xx`, se guarda en `localStorage c2hell.lang`), diccionarios en `lang/es.js` y `lang/en.js`. En `game.js` se usa `tr('clave')`; el HTML estático usa `data-i18n`, `data-i18n-aria`, `data-i18n-title`. Los nombres de datos (SAM, aviones, amenazas, mejoras, niveles, activos) son *getters* que consultan el diccionario, así el idioma cambia en caliente desde AJUSTES. Para añadir un idioma: crea `lang/xx.js` con `I18N.add('xx', {...})` (incluye `'lang.name'`) y añade la etiqueta `<script>`. Las claves que falten caen a en → es.
 - Progreso en `localStorage c2hell.save`; el idioma va aparte (no se borra con «Borrar progreso»).
 
+## Recompensa y meta-progresión
+- **Ceremonia de victoria** (`endLevel` → `startVictory` → `showEnd`): vuelta de honor con zoom al activo mejor defendido, fanfarria, estrellas una a una (sonido + vibración), contadores animados con «tick», etiqueta de *victoria económica*, récords por nivel, medallas, SITREP, tarjetas de desbloqueo (unidades, teatro, amenaza) y logros nuevos. Tocar la pantalla salta la animación.
+- **Medallas por nivel** (`MEDALS`, +PM la primera vez): Cielo limpio, Cirujano (`SURG`), Ojo de águila (`EAGLE`), Silencio de radio, Ataque preventivo. Umbrales calibrados con un bot; se ven en el briefing y en la pausa.
+- **Logros globales** (`ACH`, 18) con contadores de por vida (`p.life`), recompensa en PM y toast en directo; pantalla LOGROS en menú y campaña.
+- **Feedback de combate**: hitstop + golpe grave en derribos balísticos, cráter al destruir una rampa, pulso verde y banner «OLEADA RECHAZADA» en oleadas sin impactos, toasts de hitos (racha ×5/10/20, primer ARM esquivado, medalla perdida).
+- **Campaña por teatros**: minimapas reales con 4 nodos por teatro; teatro «asegurado» = azul y rampas tachadas.
+- **Estilo** (`COS`): color de estelas y tinte de símbolos propios, desbloqueables por nivel 6 o logros.
+- Guardado: `localStorage c2hell.save` → `stars, up, cp, ach, life, medals, rec, set`.
+
 ## Bucle de juego
 - Niveles 1–12 (duración ≈ 35 s → 5 min), a partir del 13 escalan sin fin. Empiezan en pausa (fase de planificación) y admiten 1×/2×/4×.
 - Amenazas: UAS, señuelos (indistinguibles de UAS), misiles de crucero, balísticos. Salen de **rampas hostiles**.
