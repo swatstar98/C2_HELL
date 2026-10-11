@@ -440,3 +440,9 @@ html,body{font-size:calc(16px*var(--u))}
 #zoomctl button:active{background:#173247;border-color:var(--cyan)}
 #zoomctl button[disabled]{opacity:.35}
 #zoomctl #zlvl{height:30px;font-size:12px;letter-spacing:.04em;color:var(--cyan)}
+
+/* ===== Reportar error ===== */
+#rtxt{width:100%;min-height:120px;margin:8px 0;padding:10px;background:#0a1219;border:1px solid var(--line);color:var(--text);font:calc(15px*var(--u,1)) system-ui,sans-serif;resize:vertical;-webkit-user-select:text;user-select:text}
+#rtxt:focus{outline:none;border-color:var(--cyan)}
+#rinfo{white-space:pre-wrap;word-break:break-word;font:11.5px/1.35 var(--mono);color:var(--dim);margin:6px 0 0;-webkit-user-select:text;user-select:text}
+.tips summary{cursor:pointer;font:600 13px var(--mono);letter-spacing:.06em;color:var(--amber)}

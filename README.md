@@ -89,6 +89,9 @@ Claves en `lang/<idioma>.js`. Cada clave debe existir al menos en es y en; si fa
 ### Guardado
 `localStorage`: `c2hell.save` (progreso: estrellas, mejoras, logros, `hist[campaña] = {stars, best, up, cp, aces, rib}`) y `c2hell.lang` aparte. Hay exportar/importar en Ajustes.
 
+### Reportar errores
+Ajustes y menú de pausa tienen «🐞 Reportar un error» (`showReport` en `game.js`): abre el correo del jugador (`mailto:`) hacia `reportEmail` de `config.js` con la descripción y un informe técnico (versión, dispositivo, estado de partida, últimos eventos y errores JS). No hay envío por servidor: el jugador pulsa enviar en su app de correo.
+
 ## Pruebas
 
 **No hay tests automáticos en el repositorio todavía** (las comprobaciones se han hecho con scripts de Playwright locales). El juego expone `window.__C2` (estado `G`, `newGame`, `step(dt)`, `placeUnit`, `startOps`, `endHist`, `showCamp`…) para poder simularlo sin render:

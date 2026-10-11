@@ -552,7 +552,9 @@ function restockAll() {
   for (const u of us) { const c = Math.round(u.def.restock * (1 - u.ammo / u.max)); if (G.credits >= c) { G.credits -= c; G.stats.spentCredits += c; u.ammo = u.max; u.low = false; n++; } }
   log(n ? tr('log.restocked', { n }) : tr('log.nothingRestock'), n ? 'good' : 'warn'); refreshDock(); refreshTop();
 }
+const LOGBUF = [];
 function log(msg, cls) {
+  LOGBUF.push('T+' + mmss(G ? G.t : 0) + ' ' + msg); if (LOGBUF.length > 12) LOGBUF.shift();
   const box = $('#log'), d = document.createElement('div');
   d.textContent = 'T+' + mmss(G ? G.t : 0) + ' ' + msg; if (cls) d.className = cls;
   box.appendChild(d);
@@ -2635,16 +2637,52 @@ function confirmBtn(btn, fn, txt) {
     setTimeout(() => { armed = false; btn.innerHTML = old; btn.style.borderColor = ''; }, 3000);
   };
 }
+/* ---- Reportar un error: abre el correo del jugador con un informe técnico listo (sin servidor; el jugador solo pulsa enviar) ---- */
+const ERRBUF = [];
+addEventListener('error', e => { ERRBUF.push(String(e.message).slice(0, 140) + ' @' + String(e.filename || '').split('/').pop() + ':' + (e.lineno || 0)); if (ERRBUF.length > 6) ERRBUF.shift(); });
+addEventListener('unhandledrejection', e => { ERRBUF.push('promise: ' + String(e.reason && e.reason.message || e.reason).slice(0, 140)); if (ERRBUF.length > 6) ERRBUF.shift(); });
+function reportInfo() {
+  const cfg = window.C2_CONFIG || {}, L = [];
+  L.push('Versión: ' + (cfg.version || '?') + ' · idioma: ' + I18N.lang + ' · UI x' + (SET.ui || 1));
+  L.push('Dispositivo: ' + navigator.userAgent.replace(/\s+/g, ' ').slice(0, 160));
+  L.push('Pantalla: ' + innerWidth + 'x' + innerHeight + ' @' + (window.devicePixelRatio || 1) + (window.Capacitor ? ' · app nativa' : ' · web'));
+  if (G) {
+    L.push('Partida: ' + (G.hist ? G.hist.camp + ' misión ' + G.hist.m : 'nivel ' + G.n) + ' · fase ' + G.phase + ' · T+' + mmss(G.t) + ' · integridad ' + Math.round(integrity()) + '% · créditos ' + Math.round(G.credits) + ' · zoom x' + view.zoom.toFixed(1));
+  }
+  if (LOGBUF.length) L.push('Últimos eventos:\n  ' + LOGBUF.slice(-8).join('\n  '));
+  if (ERRBUF.length) L.push('Errores JS:\n  ' + ERRBUF.join('\n  '));
+  return L.join('\n');
+}
+function showReport(back) {
+  const info = reportInfo(), to = (window.C2_CONFIG && window.C2_CONFIG.reportEmail) || 'rotorliftsim@gmail.com';
+  const o = showOverlay('<h2>🐞 ' + tr('rep.title') + '</h2><p class="sub">' + tr('rep.help') + '</p>' +
+    '<textarea id="rtxt" rows="5" maxlength="1200" placeholder="' + tr('rep.ph') + '"></textarea>' +
+    '<details class="tips"><summary>' + tr('rep.what') + '</summary><pre id="rinfo"></pre></details>' +
+    '<button class="big go" data-a="send">' + tr('rep.send') + '</button><button class="big" data-a="copy">' + tr('rep.copy') + '</button><button class="big" data-a="back">' + tr('back.menu') + '</button>');
+  $('#rinfo', o).textContent = info;
+  const body = () => ($('#rtxt', o).value.trim() || '(sin descripción)') + '\n\n--- ' + tr('rep.data') + ' ---\n' + info;
+  const subj = 'C2 HELL — ' + tr('rep.title');
+  $('[data-a=send]', o).onclick = () => {
+    const a = document.createElement('a'); a.href = 'mailto:' + to + '?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body().slice(0, 1900));
+    document.body.appendChild(a); a.click(); a.remove();
+  };
+  $('[data-a=copy]', o).onclick = () => {
+    const t = to + '\n' + subj + '\n\n' + body(), ok = () => toast(tr('rep.copied'));
+    try { navigator.clipboard.writeText(t).then(ok, () => { const r = $('#rtxt', o); r.value = t; r.select(); }); } catch (e) { const r = $('#rtxt', o); r.value = t; r.select(); }
+  };
+  $('[data-a=back]', o).onclick = back || showMenu;
+}
 function showPause() {
   if (!G || G.demo || G.over) { showMenu(); return; }
   const was = G.speed; if (was > 0) resumeSpeed = was; setSpeed(0);
   const o = showOverlay('<h2>' + tr('pz.title') + '</h2><div class="kv"><span>' + tr('pz.level') + '</span><span>' + G.n + ' — ' + G.lv.name + '</span><span>' + tr('pz.time') + '</span><span>' + mmss(G.t) + '</span><span>' + tr('p.integrity') + '</span><span>' + Math.round(integrity()) + '%</span><span>' + tr('pz.credits') + '</span><span>' + Math.floor(G.credits) + '</span></div>' +
     '<div class="mdl"><b>' + tr('br.medals') + '</b>' + medalsFor(G.lv).map(m => { const sv = medalLive(m); return '<div class="mrow ' + sv + '"><span>' + (sv === 'ok' ? '✔ ' : sv === 'fail' ? '✕ ' : '○ ') + tr('medal.' + m.id) + '</span><span class="amber">+' + m.pm + '</span></div>'; }).join('') + '</div>' +
-    '<button class="big go" data-a="res">' + tr('pz.resume') + '</button><button class="big" data-a="restart">' + tr('pz.restart') + '</button><button class="big" data-a="set">' + tr('m.set') + '</button><button class="big" data-a="help">' + tr('m.help') + '</button><button class="big" data-a="quit">' + tr('pz.quit') + '</button>');
+    '<button class="big go" data-a="res">' + tr('pz.resume') + '</button><button class="big" data-a="restart">' + tr('pz.restart') + '</button><button class="big" data-a="set">' + tr('m.set') + '</button><button class="big" data-a="help">' + tr('m.help') + '</button><button class="big" data-a="rep">🐞 ' + tr('rep.title') + '</button><button class="big" data-a="quit">' + tr('pz.quit') + '</button>');
   const back = () => showPause();
   $('[data-a=res]', o).onclick = () => { o.classList.add('hidden'); if (was > 0) setSpeed(resumeSpeed); };
   $('[data-a=set]', o).onclick = () => { G.speed = 0; showSettings(() => { o.classList.add('hidden'); showPauseKeep(was); }); };
   $('[data-a=help]', o).onclick = () => showHelp(() => showPauseKeep(was));
+  $('[data-a=rep]', o).onclick = () => showReport(() => showPauseKeep(was));
   confirmBtn($('[data-a=restart]', o), () => newGame(G.n, G.cfg));
   confirmBtn($('[data-a=quit]', o), () => { G.demo = false; if (G.hist) showCamp(G.hist.camp); else showLevels(); });
 }
@@ -2658,7 +2696,7 @@ function showSettings(back) {
   const o = showOverlay('<h2>' + tr('set.title') + '</h2><div class="opt"><span>' + tr('set.diff') + '</span><div class="seg">' + diffSeg + '</div></div><div class="opt"><span>' + tr('set.lang') + '</span><div class="seg">' + langSeg + '</div></div>' + onoff('snd', tr('set.snd')) + onoff('vib', tr('set.vib')) + onoff('rings', tr('set.rings')) +
     '<div class="opt"><span>' + tr('set.scale') + '</span><div class="seg">' + seg + '</div></div>' + onoff('music', tr('set.music')) + onoff('voice', tr('set.voice')) + onoff('cb', tr('set.cb')) + onoff('ap', tr('set.ap')) +
     '<div class="opt"><span>' + tr('set.ui') + '</span><div class="seg">' + [[1, 'A'], [1.15, 'A+'], [1.3, 'A++']].map(([v, l]) => '<button class="pbtn' + (SET.ui === v ? ' sel' : '') + '" data-ui="' + v + '">' + l + '</button>').join('') + '</div></div>' +
-    (Net.avail() ? onoff('online', tr('set.online')) + '<div class="opt"><span>' + tr('set.nick') + '</span><input id="nick" maxlength="12" value="' + (SET.nick || '').replace(/[<>&"]/g, '') + '"></div>' : '') + '<button class="big" data-a="sav">' + tr('set.save') + '</button><button class="big" data-a="fs">' + tr('set.fs') + '</button><button class="big" data-a="tut">' + tr('set.tut') + '</button><button class="big" data-a="reset">' + tr('set.reset') + '</button><button class="big" data-a="back">' + tr('back') + '</button>');
+    (Net.avail() ? onoff('online', tr('set.online')) + '<div class="opt"><span>' + tr('set.nick') + '</span><input id="nick" maxlength="12" value="' + (SET.nick || '').replace(/[<>&"]/g, '') + '"></div>' : '') + '<button class="big" data-a="sav">' + tr('set.save') + '</button><button class="big" data-a="fs">' + tr('set.fs') + '</button><button class="big" data-a="rep">🐞 ' + tr('rep.title') + '</button><button class="big" data-a="tut">' + tr('set.tut') + '</button><button class="big" data-a="reset">' + tr('set.reset') + '</button><button class="big" data-a="back">' + tr('back') + '</button>');
   $$('[data-d]', o).forEach(b => b.onclick = () => { SET.diff = b.dataset.d; saveSet(); showSettings(back); });
   $$('[data-lang]', o).forEach(b => b.onclick = () => { I18N.setLang(b.dataset.lang); showSettings(back); });
   $$('[data-k]', o).forEach(b => b.onclick = () => { const k = b.dataset.k; SET[k] = !SET[k]; if (k === 'snd') { SND.on = SET.snd; SND.init(); } if (k === 'voice' && !SET.voice && window.speechSynthesis) speechSynthesis.cancel(); applyA11y(); saveSet(); showSettings(back); });
@@ -2666,6 +2704,7 @@ function showSettings(back) {
   $$('[data-sc]', o).forEach(b => b.onclick = () => { SET.scale = +b.dataset.sc; saveSet(); resize(); showSettings(back); });
   $('[data-a=fs]', o).onclick = toggleFS; $('[data-a=sav]', o).onclick = () => showSaveTools(() => showSettings(back));
   { const nk = $('#nick', o); if (nk) nk.onchange = () => { SET.nick = nk.value.trim().slice(0, 12); saveSet(); }; }
+  $('[data-a=rep]', o).onclick = () => showReport(() => showSettings(back));
   $('[data-a=tut]', o).onclick = () => startTutorial();
   confirmBtn($('[data-a=reset]', o), () => { const keep = { set: SET }; savePut(keep); SET.tutDone = false; saveSet(); showSettings(back); }, tr('set.resetConfirm'));
   $('[data-a=back]', o).onclick = back || showMenu;
