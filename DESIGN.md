@@ -5,7 +5,7 @@ Web pura (Canvas 2D + HTML), sin dependencias. Funciona en PC (ratón/teclado) y
 
 ## Ejecutar
 Abre `index.html` (doble clic) o sirve la carpeta (`npx serve .`).
-Parámetros de depuración: `?unlock` (todos los niveles), `?level=7` (salta al nivel).
+Parámetros de depuración: `?unlock` (todos los niveles), `?level=7` (salta al nivel), `?lang=en|es`.
 
 ## Empaquetar para Android (Capacitor)
 ```
@@ -13,6 +13,13 @@ npm init -y && npm i @capacitor/core @capacitor/cli @capacitor/android
 npx cap init c2hell com.tuempresa.c2hell --web-dir=.
 npx cap add android && npx cap sync && npx cap open android
 ```
+
+## Arquitectura
+- Diseño **vertical** (portrait-first; en escritorio se centra una columna). `index.html` + `style.css` + `game.js` (IIFE).
+- `maps.js`: **datos generados** (Natural Earth vía world-atlas) en `window.C2_MAPS`: 3 teatros reales (Iberia, Mediterráneo central, Norte de Australia) con anillos [lon,lat] que se proyectan al cargar cada nivel. Conflictos ficticios entre países reales; el teatro cambia cíclicamente por nivel.
+- **Dos fases por nivel**: PREPARACIÓN (en pausa: defensas + reparto de aeronaves entre 3 bases) y OPERACIÓN (salidas, radares ON/OFF; desplegar cuesta +50 %). Los misiles antirradar (ARM) cazan emisores encendidos.
+- **i18n** (ES + EN, ampliable): `i18n.js` (`I18N.t(clave, {param})`, detección por navegador/`?lang=xx`, se guarda en `localStorage c2hell.lang`), diccionarios en `lang/es.js` y `lang/en.js`. En `game.js` se usa `tr('clave')`; el HTML estático usa `data-i18n`, `data-i18n-aria`, `data-i18n-title`. Los nombres de datos (SAM, aviones, amenazas, mejoras, niveles, activos) son *getters* que consultan el diccionario, así el idioma cambia en caliente desde AJUSTES. Para añadir un idioma: crea `lang/xx.js` con `I18N.add('xx', {...})` (incluye `'lang.name'`) y añade la etiqueta `<script>`. Las claves que falten caen a en → es.
+- Progreso en `localStorage c2hell.save`; el idioma va aparte (no se borra con «Borrar progreso»).
 
 ## Bucle de juego
 - Niveles 1–12 (duración ≈ 35 s → 5 min), a partir del 13 escalan sin fin. Empiezan en pausa (fase de planificación) y admiten 1×/2×/4×.
@@ -33,8 +40,7 @@ npx cap add android && npx cap sync && npx cap open android
 (ver el bot de simulación: `step(dt)` avanza la sim sin render).
 
 ## Ideas siguientes
-Arte/iconografía APP-6 más completa, mejoras entre niveles (meta-progresión), más tipos de amenaza (HARM, enjambres con evasión),
-mapas reales por nivel, audio real, guardado en la nube, empaquetado Capacitor.
+Más teatros, más tipos de amenaza (enjambres con evasión), audio real, guardado en la nube, empaquetado Capacitor, más idiomas.
 
 ## Créditos
 Simbología NTDS: fuente **NTDS Icons** de Peter Ellis Jones — https://github.com/peterellisjones/ntds-icons

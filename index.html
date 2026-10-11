@@ -13,24 +13,24 @@
 <div id="app">
   <header id="top">
     <div class="r1">
-      <button id="btn-menu" class="tbtn" aria-label="Menú">☰</button>
-      <div class="stat"><span class="lbl">NIVEL</span><b id="s-level">1</b></div>
-      <div class="stat"><span class="lbl">OLEADA</span><b id="s-wave">0/0</b></div>
-      <div class="stat"><span class="lbl">PRÓX.</span><b id="s-next">—</b></div>
+      <button id="btn-menu" class="tbtn" data-i18n-aria="a.menu" aria-label="Menú">☰</button>
+      <div class="stat"><span class="lbl" data-i18n="hud.level">NIVEL</span><b id="s-level">1</b></div>
+      <div class="stat"><span class="lbl" data-i18n="hud.wave">OLEADA</span><b id="s-wave">0/0</b></div>
+      <div class="stat"><span class="lbl" data-i18n="hud.next">PRÓX.</span><b id="s-next">—</b></div>
       <div class="stat"><span class="lbl">T+</span><b id="s-time">0:00</b></div>
-      <div class="stat"><span class="lbl">CRÉDITOS</span><b id="s-cred" class="amber">0</b></div>
-      <button id="btn-snd" class="tbtn" aria-label="Sonido">♪</button>
+      <div class="stat"><span class="lbl" data-i18n="hud.credits">CRÉDITOS</span><b id="s-cred" class="amber">0</b></div>
+      <button id="btn-snd" class="tbtn" data-i18n-aria="a.sound" aria-label="Sonido">♪</button>
     </div>
     <div class="r2">
-      <div class="stat grow"><span class="lbl">INTEGRIDAD</span>
+      <div class="stat grow"><span class="lbl" data-i18n="hud.integrity">INTEGRIDAD</span>
         <div class="bar"><i id="s-integ"></i></div></div>
       <div id="speeds" class="hidden">
-        <button class="tbtn spd" data-s="0" aria-label="Pausa">❚❚</button>
+        <button class="tbtn spd" data-s="0" data-i18n-aria="a.pause" aria-label="Pausa">❚❚</button>
         <button class="tbtn spd" data-s="1">1×</button>
         <button class="tbtn spd" data-s="2">2×</button>
         <button class="tbtn spd" data-s="4">4×</button>
       </div>
-      <button id="btn-start">▶ INICIAR OPERACIÓN</button>
+      <button id="btn-start" data-i18n="btn.start">▶ INICIAR OPERACIÓN</button>
     </div>
   </header>
 
@@ -45,16 +45,19 @@
 
   <aside id="dock">
     <div id="tabs">
-      <button class="tab on" data-tab="def">DEFENSA</button>
-      <button class="tab" data-tab="air">AIRE</button>
-      <button class="tab" data-tab="rad">RADARES</button>
-      <button class="tabx" id="btn-restock" title="Reabastecer todas las baterías [F]">REABAST.</button>
+      <button class="tab on" data-tab="def" data-i18n="tab.def">DEFENSA</button>
+      <button class="tab" data-tab="air" data-i18n="tab.air">AIRE</button>
+      <button class="tab" data-tab="rad" data-i18n="tab.rad">RADARES</button>
+      <button class="tabx" id="btn-restock" data-i18n-title="restock.title" title="Reabastecer todas las baterías [F]">REABAST.</button>
     </div>
     <div id="cards"></div>
   </aside>
 </div>
 <div id="overlay" class="hidden"></div>
 <script src="maps.js"></script>
+<script src="i18n.js"></script>
+<script src="lang/es.js"></script>
+<script src="lang/en.js"></script>
 <script src="game.js"></script>
 </body>
 </html>
