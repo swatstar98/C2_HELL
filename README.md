@@ -39,6 +39,7 @@ También vale abrir `index.html` con doble clic; el service worker y el portapap
 | `npm run server` | Servidor de referencia para extras online (opcional) |
 | `node tools/store_shots.js [es,en,…]` | Capturas de tienda 1080×1920 por idioma (requiere Playwright) |
 | `node tools/store_graphic.js <lang>` | Feature graphic 1024×500 |
+| `node tools/social_posts.js [es,en]` | 10 posts de Instagram 1080×1350 en `social/` (captions en `social/captions.md`; requiere antes `store_shots.js`) |
 | `node tools/fetch_hist_photos.js` | Descarga y redimensiona fotos de archivo (ver `hist/img/README.md`) |
 
 ## Estructura
