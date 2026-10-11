@@ -158,9 +158,9 @@ const bg = document.createElement('canvas');
 
 function saveGet() { try { return JSON.parse(localStorage.getItem('c2hell.save') || '{}'); } catch (e) { return {}; } }
 function savePut(o) { try { localStorage.setItem('c2hell.save', JSON.stringify(o)); } catch (e) { /* sin almacenamiento */ } }
-const SET = Object.assign({ snd: true, vib: true, rings: true, scale: 1, tutDone: false }, saveGet().set || {});
+const SET = Object.assign({ snd: true, vib: true, rings: true, scale: 1, tutDone: false, cos: {} }, saveGet().set || {});
 function saveSet() { const o = saveGet(); o.set = SET; savePut(o); }
-const FXS = { shake: 0, flash: 0 };
+const FXS = { shake: 0, flash: 0, hold: 0, pulse: 0 };
 function floatTxt(x, y, txt, col) { if (!G) return; if (G.floats.length > 40) G.floats.shift(); G.floats.push({ x, y, txt, col, t: 0 }); }
 function buzz(ms) { if (SET.vib && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) { /* sin vibración */ } } }
 
@@ -170,7 +170,8 @@ function newGame(n) {
   loadTheater(lv.theater, computeH()); resize();
   G = { up, n, lv, t: 0, speed: 0, phase: 'prep', over: false, endTimer: 0, credits: Math.round(lv.credits * (1 + .1 * (up.budget || 0))), id: 1, waveIdx: 0,
         assets: [], units: [], sites: [], threats: [], pending: [], missiles: [], fx: [], air: [], sel: null, buyBase: null,
-        stats: { kills: 0, leaked: 0, fired: 0, spent: 0, value: 0, airLost: 0, strikes: 0, spentCredits: 0, evaded: 0 } };
+        stats: { kills: 0, leaked: 0, fired: 0, spent: 0, value: 0, airLost: 0, strikes: 0, spentCredits: 0, evaded: 0,
+          killKind: {}, armLost: 0, streak: 0, bestStreak: 0, cleanWaves: 0, detSum: 0, detN: 0, earlySite: false, sitesKilled: 0, sorties: 0 } };
   for (const a of MAP.T.assets) {
     const p = MAP.proj(a.lat, a.lon), o = Object.assign({ hp: 100, maxhp: 100, emit: true, rdown: 0 }, ASSET_TYPE[a.type], { id: a.id, type: a.type, x: p[0], y: p[1] });
     Object.defineProperty(o, 'name', { get: () => tr('pl.' + a.name, null, a.name), enumerable: true }); G.assets.push(o);
@@ -183,8 +184,8 @@ function newGame(n) {
   UI.mode = 'idle'; UI.spec = null; UI.ghost = null; UI.hintShown = {}; UI.rosterSig = '';
   if (UI.tab !== 'def' && UI.tab !== 'air' && UI.tab !== 'rad') UI.tab = 'def';
   $('#log').innerHTML = ''; hidePanel(); setHint(null);
-  G.demo = false; G.floats = []; G.stats.blind = 0; G.stats.dry = 0; G.stats.leakKind = {};
-  FXS.shake = 0; FXS.flash = 0;
+  G.demo = false; G.floats = []; G.craters = []; G.waveStat = []; G.victory = null; G.zoom = 1; G.hl = null; $('#toasts').innerHTML = ''; G.stats.blind = 0; G.stats.dry = 0; G.stats.leakKind = {};
+  FXS.shake = 0; FXS.flash = 0; FXS.hold = 0; FXS.pulse = 0;
   buildDock(); setPhase('prep'); refreshTop();
   $('#overlay').classList.add('hidden');
   G.tut = (n === 1 && !SET.tutDone) ? { i: 0 } : null;
@@ -242,7 +243,14 @@ const SND = {
   launch() { this.tone(520, .22, 'sawtooth', .025, -380, 'l'); },
   boom() { this.noise(.3, .09, 'b'); },
   impact() { this.noise(.7, .22, 'i'); },
-  ping() { this.tone(880, .1, 'square', .03, 0, 'p'); }
+  ping() { this.tone(880, .1, 'square', .03, 0, 'p'); },
+  thud() { this.tone(110, .35, 'sawtooth', .08, -70, 'th'); this.noise(.45, .16, 'thn'); },
+  chime() { this.tone(660, .18, 'triangle', .05, 0, 'c1'); setTimeout(() => this.tone(990, .28, 'triangle', .05, 0, 'c2'), 110); },
+  tick() { this.tone(1500, .03, 'square', .018, 0, 'tk'); },
+  star(i) { this.tone(520 * Math.pow(1.26, i), .35, 'triangle', .07, 0, 'st' + i); },
+  ach() { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => this.tone(f, .22, 'triangle', .06, 0, 'ach' + i), i * 90)); },
+  fanfare() { [392, 523, 659, 784, 1047].forEach((f, i) => setTimeout(() => { this.tone(f, .5, 'triangle', .07, 0, 'fa' + i); this.tone(f / 2, .5, 'sawtooth', .02, 0, 'fb' + i); }, i * 140)); },
+  lose() { [330, 262, 196].forEach((f, i) => setTimeout(() => this.tone(f, .5, 'sawtooth', .05, -20, 'lo' + i), i * 260)); }
 };
 
 /* ============================ LOG / HUD ============================ */
@@ -264,6 +272,12 @@ function tutTick() {
   if (st && st.done()) { G.tut.i++; if (G.tut.i >= TUT.length) endTut(); else if (UI.mode === 'idle') tutShow(); }
 }
 function endTut() { if (G) G.tut = null; SET.tutDone = true; saveSet(); if ($('#hint').dataset.key === 'tut') setHint(null); }
+function toast(html, cls) {
+  const box = $('#toasts'); if (!box) return;
+  const d = document.createElement('div'); d.className = cls || ''; d.innerHTML = html; box.appendChild(d);
+  while (box.children.length > 3) box.removeChild(box.firstChild);
+  setTimeout(() => d.remove(), 3800);
+}
 function banner(html) {
   const b = $('#banner'); b.innerHTML = html; b.classList.remove('hidden'); b.style.animation = 'none'; void b.offsetWidth; b.style.animation = '';
   clearTimeout(banner.t); banner.t = setTimeout(() => b.classList.add('hidden'), 2750);
@@ -537,7 +551,7 @@ function launchMission(af, m) {
   if (af.state === 'hangar') {
     if (G.phase === 'prep') { log(tr('log.sortiesLater'), 'warn'); return false; }
     if (b.hp <= 0) { log(tr('log.baseInop', { b: b.name }), 'bad'); return false; }
-    af.state = 'out'; af.x = b.x; af.y = b.y; af.cool = 1;
+    af.state = 'out'; af.x = b.x; af.y = b.y; af.cool = 1; G.stats.sorties++;
     SND.launch();
   } else if (af.state !== 'out') return false;
   af.mission = m;
@@ -562,9 +576,10 @@ function spawnWave(w, idx) {
   let n = 0;
   for (const it of w.items) for (let i = 0; i < it.count; i++) {
     const s = pick(alive);
-    G.pending.push({ kind: it.kind, site: s, delay: rnd(0, Math.min(5, .3 * it.count + 1)) });
+    G.pending.push({ kind: it.kind, site: s, wave: idx, delay: rnd(0, Math.min(5, .3 * it.count + 1)) });
     n++;
   }
+  G.waveStat[idx] = { total: 0, leaked: 0, done: false };
   log(tr('log.wave', { i: idx + 1, m: G.lv.waves.length, n }), 'warn'); SND.ping();
   const cnt = { drone: 0, cruise: 0, ballistic: 0, arm: 0 }; for (const it of w.items) cnt[it.kind === 'decoy' ? 'drone' : it.kind] += it.count;
   banner(tr('wave.word') + ' ' + (idx + 1) + '/' + G.lv.waves.length + '<small>' + [cnt.drone && KIND_LBL.drone + ' ×' + cnt.drone, cnt.cruise && KIND_LBL.cruise + ' ×' + cnt.cruise, cnt.ballistic && KIND_LBL.ballistic + ' ×' + cnt.ballistic, cnt.arm && 'ARM ×' + cnt.arm].filter(Boolean).join(' · ') + '</small>');
@@ -578,7 +593,7 @@ function toggleEmit(e) {
   e.emit = !e.emit; log(tr('log.emit', { n: e.name, st: e.emit ? 'ON' : 'OFF' }), e.emit ? '' : 'warn'); SND.ping();
   updateDetection(); refreshDock(); if (G.sel && G.sel.ref === e) renderPanel();
 }
-function spawnThreat(kind, s) {
+function spawnThreat(kind, s, wave) {
   const D = THREAT[kind];
   let tgt = null;
   if (kind === 'arm') {
@@ -594,7 +609,8 @@ function spawnThreat(kind, s) {
   }
   const sp = D.spd * rnd(.92, 1.08), x = s.x + rnd(-14, 14), y = s.y + rnd(-14, 14);
   const d = dst(x, y, tgt.x, tgt.y), vx = (tgt.x - x) / d * sp, vy = (tgt.y - y) / d * sp;
-  G.threats.push({ id: ++G.id, kind, D, x, y, vx, vy, spd: sp, target: tgt, alive: true, tracked: kind === 'ballistic', site: s, _surv: 1 });
+  G.threats.push({ id: ++G.id, kind, D, x, y, vx, vy, spd: sp, target: tgt, alive: true, tracked: kind === 'ballistic', site: s, _surv: 1, wave, len: d });
+  if (G.waveStat[wave]) G.waveStat[wave].total++;
   if (kind === 'ballistic') { log(tr('log.balLaunch', { s: s.name }), 'bad'); SND.ping(); }
   if (kind === 'arm') {
     log(tr('log.armLaunch', { n: tgt.name }), 'bad'); SND.ping(); buzz(70);
@@ -605,7 +621,11 @@ function spawnThreat(kind, s) {
 function fx(x, y, col, size, dur) { G.fx.push({ x, y, col, size, dur: dur || .6, t: 0 }); }
 function killThreat(t, by) {
   t.alive = false; G.credits += t.D.bounty; G.stats.kills++; G.stats.value += t.D.val;
-  fx(t.x, t.y, C.amber, t.kind === 'ballistic' ? 30 : t.kind === 'cruise' ? 22 : 14, .5); SND.boom();
+  { const kk = t.kind === 'decoy' ? 'drone' : t.kind; G.stats.killKind[kk] = (G.stats.killKind[kk] || 0) + 1; }
+  const st = G.stats; st.streak++; st.bestStreak = Math.max(st.bestStreak, st.streak);
+  if (st.streak === 5 || st.streak === 10 || st.streak === 20 || st.streak === 35) { toast(tr('ms.streak', { n: st.streak }), 'gold'); SND.chime(); }
+  fx(t.x, t.y, C.amber, t.kind === 'ballistic' ? 30 : t.kind === 'cruise' ? 22 : 14, .5);
+  if (t.kind === 'ballistic') { FXS.hold = Math.max(FXS.hold, .14); FXS.shake = Math.min(1, FXS.shake + .3); SND.thud(); fx(t.x, t.y, '#fff3c4', 44, .45); } else SND.boom();
   floatTxt(t.x, t.y - 6, '+' + t.D.bounty, C.amber);
   if (t.kind === 'cruise' || t.kind === 'ballistic') log(tr('log.killed', { n: t.D.name, by }), 'good');
 }
@@ -617,7 +637,7 @@ function impactARM(t) {
   t.alive = false;
   const e = t.target, isAsset = !!e.type, live = isAsset ? e.hp > 0 : G.units.includes(e);
   if (live && isEmitting(e)) {
-    G.stats.leaked++; G.stats.leakKind.arm = (G.stats.leakKind.arm || 0) + 1;
+    G.stats.leaked++; G.stats.leakKind.arm = (G.stats.leakKind.arm || 0) + 1; leakMark(t);
     FXS.shake = Math.min(1, FXS.shake + .35); FXS.flash = Math.min(.5, FXS.flash + .18); buzz(60); SND.impact();
     if (isAsset) {
       e.hp = Math.max(0, e.hp - 10 * (1 - .07 * U('armor'))); e.rdown = 45; fx(e.x, e.y, C.red, 30, .9);
@@ -626,13 +646,18 @@ function impactARM(t) {
       G.units.splice(G.units.indexOf(e), 1); fx(e.x, e.y, C.red, 36, 1); if (G.sel && G.sel.ref === e) hidePanel();
       log(tr('log.destroyedArm', { n: e.name }), 'bad');
     }
-  } else { G.stats.evaded++; fx(t.x, t.y, C.dim, 14, .5); floatTxt(t.x, t.y - 8, tr('float.armLost'), C.green); log(tr('log.armLost', { n: e.name }), 'good'); }
+  } else { G.stats.evaded++; G.stats.armLost++; if (G.stats.armLost === 1) { toast(tr('ms.armFirst'), 'gold'); SND.chime(); } fx(t.x, t.y, C.dim, 14, .5); floatTxt(t.x, t.y - 8, tr('float.armLost'), C.green); log(tr('log.armLost', { n: e.name }), 'good'); }
+}
+function leakMark(t) {
+  const st = G.stats; st.streak = 0; if (!t.seen) st.detN++;
+  const ws = G.waveStat[t.wave]; if (ws) ws.leaked++;
+  if (st.leaked === 1 && G.phase === 'ops' && !G.demo) { toast(tr('medal.lost', { n: tr('medal.flawless') }), 'warn'); }
 }
 function impact(t) {
   if (t.kind === 'arm') { impactARM(t); return; }
   t.alive = false;
   const a = t.target;
-  G.stats.leaked++; G.stats.leakKind[t.kind] = (G.stats.leakKind[t.kind] || 0) + 1; if (!t.tracked) G.stats.blind++;
+  G.stats.leaked++; G.stats.leakKind[t.kind] = (G.stats.leakKind[t.kind] || 0) + 1; if (!t.tracked) G.stats.blind++; leakMark(t);
   if (t.D.dmg > 0) {
     const dmg = t.D.dmg * (1 - .07 * U('armor')); a.hp = Math.max(0, a.hp - dmg);
     floatTxt(a.x, a.y - 26, '−' + Math.round(dmg) + '%', C.red); FXS.shake = Math.min(1, FXS.shake + (t.kind === 'ballistic' ? .9 : .3)); FXS.flash = Math.min(.5, FXS.flash + .22); buzz(t.kind === 'ballistic' ? 160 : 45);
@@ -653,6 +678,7 @@ function updateDetection() {
     t.tracked = false; t.lost = t.kind === 'arm' && !isEmitting(t.target);
     for (const r of rad) if (dst(t.x, t.y, r[0], r[1]) <= r[2]) { t.tracked = true; break; }
   }
+  for (const t of G.threats) if (t.alive && t.tracked && !t.seen) { t.seen = true; G.stats.detSum += clamp(dst(t.x, t.y, t.target.x, t.target.y) / (t.len || 1), 0, 1); G.stats.detN++; }
 }
 function pickTarget(x, y, range, pkTab, roeSave) {
   let best = null, bs = 1e9;
@@ -722,7 +748,7 @@ function updateAir(a, dt) {
     if (flyTo(a, m.site.x, m.site.y, dt)) {
       const p = strikeP(D, m.site); G.stats.strikes++;
       if (Math.random() < p) {
-        m.site.alive = false; fx(m.site.x, m.site.y, C.amber, 40, 1.2); SND.impact(); G.credits += 60; floatTxt(m.site.x, m.site.y - 20, '+60', C.amber);
+        m.site.alive = false; G.stats.sitesKilled++; if (G.waveIdx <= 2) G.stats.earlySite = true; G.craters.push({ x: m.site.x, y: m.site.y }); FXS.hold = Math.max(FXS.hold, .1); fx(m.site.x, m.site.y, C.amber, 40, 1.2); SND.impact(); G.credits += 60; floatTxt(m.site.x, m.site.y - 20, '+60', C.amber);
         log(tr('log.siteKilled', { s: m.site.name, a: a.label }), 'good');
         const dropped = G.pending.filter(q => q.site === m.site).length; G.pending = G.pending.filter(q => q.site !== m.site);
         if (dropped) log(tr('log.cancelled', { n: dropped }), 'good');
@@ -767,6 +793,18 @@ function updateMissiles(dt) {
     if (m.life <= 0) G.missiles.splice(i, 1);
   }
 }
+function resolveWaves() {
+  for (let i = 0; i < G.waveIdx; i++) {
+    const ws = G.waveStat[i]; if (!ws || ws.done) continue;
+    if (G.pending.some(p => p.wave === i) || G.threats.some(t => t.alive && t.wave === i)) continue;
+    ws.done = true; if (ws.total <= 0) continue;
+    const pct = Math.round((ws.total - ws.leaked) / ws.total * 100), last = i === G.lv.waves.length - 1;
+    if (ws.leaked === 0) {
+      G.stats.cleanWaves++; FXS.pulse = 1;
+      if (!last) { banner(tr('wave.clean') + '<small>' + tr('wave.cleanSub', { n: ws.total }) + '</small>'); SND.chime(); }
+    } else if (!last && pct >= 50) toast(tr('wave.held', { i: i + 1, p: pct }), '');
+  }
+}
 function step(dt) {
   G.t += dt;
   G.credits += G.lv.income * dt;
@@ -774,7 +812,7 @@ function step(dt) {
   while (G.waveIdx < G.lv.waves.length && G.t >= G.lv.waves[G.waveIdx].t) { spawnWave(G.lv.waves[G.waveIdx], G.waveIdx); G.waveIdx++; }
   for (let i = G.pending.length - 1; i >= 0; i--) {
     const p = G.pending[i]; p.delay -= dt;
-    if (p.delay <= 0) { if (p.site.alive) spawnThreat(p.kind, p.site); G.pending.splice(i, 1); }
+    if (p.delay <= 0) { if (p.site.alive) spawnThreat(p.kind, p.site, p.wave); G.pending.splice(i, 1); }
   }
   for (const t of G.threats) {
     if (!t.alive) continue;
@@ -796,6 +834,7 @@ function step(dt) {
   G.threats = G.threats.filter(t => t.alive);
   for (let i = G.fx.length - 1; i >= 0; i--) { G.fx[i].t += dt; if (G.fx[i].t > G.fx[i].dur) G.fx.splice(i, 1); }
   for (const f of G.floats) f.t += dt; G.floats = G.floats.filter(f => f.t < 1.1);
+  resolveWaves();
   // fin de nivel
   const ig = integrity();
   if (!G.over && (capital().hp <= 0 || ig < 25)) endLevel(false);
@@ -1135,7 +1174,7 @@ function armPulse(e, r) {
 function drawAsset(a) {
   const R = view.R * 1.1;
   sym(a.x, a.y, () => {
-    const dead = a.hp <= 0, col = dead ? '#55606a' : C.blue;
+    const dead = a.hp <= 0, col = dead ? '#55606a' : cosCache.tint;
     if (fontReady) ntdsGlyph(a.type === 'capital' ? NT.cmdF : NT.landF, col, R * 2.2);
     else {
     frameGround(R, col, .9 / .8 * .8 * 1.25, true);
@@ -1157,7 +1196,7 @@ function drawUnit(u) {
   sym(u.x, u.y, () => {
     const bo = fontReady ? R * .85 : R * .8;
     if (off) ctx.globalAlpha = .45;
-    if (fontReady) ntdsGlyph(NT.landF, C.blue, R * 2.0);
+    if (fontReady) ntdsGlyph(NT.landF, cosCache.tint, R * 2.0);
     else { frameGround(R, C.blue); if (D.radar) glyphRadar(R, C.blue); else glyphAD(R, C.blue, AD_MOD[D.id]); }
     ctx.globalAlpha = 1;
     if (D.range) {
@@ -1236,10 +1275,10 @@ function drawAir(a) {
   }
   const rb = a.state === 'rtb' ? rtbBase(a) : null;
   if (rb) { const b = rb; ctx.save(); ctx.strokeStyle = 'rgba(160,190,210,.35)'; ctx.setLineDash([3 / view.s, 5 / view.s]); ctx.lineWidth = 1 / view.s; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.restore(); }
-  trail(a, C.blue);
+  trail(a, cosCache.trail);
   sym(a.x, a.y, () => {
     if (!fontReady) { ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(Math.cos(a.hdg) * R * 1.1, Math.sin(a.hdg) * R * 1.1); ctx.lineTo(Math.cos(a.hdg) * R * 2.3, Math.sin(a.hdg) * R * 2.3); ctx.stroke(); }
-    airSymbol(a.type, R, a.state === 'rtb' ? '#9fb7c8' : C.blue, a.hdg);
+    airSymbol(a.type, R, a.state === 'rtb' ? '#9fb7c8' : cosCache.tint, a.hdg);
     label(a.label, 0, R * .5 + 12, '#8fc3ee', 8);
     if (sel) bracket(R * 1.6);
   });
@@ -1277,6 +1316,7 @@ function draw() {
   ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
   ctx.clearRect(0, 0, view.w, view.h);
   if (FXS.shake > 0) ctx.translate((Math.random() - .5) * FXS.shake * 7, (Math.random() - .5) * FXS.shake * 7);
+  if (G && G.zoom > 1.001 && G.hl) { const zx = G.hl.x * view.s + view.ox, zy = G.hl.y * view.s + view.oy; ctx.translate(zx, zy); ctx.scale(G.zoom, G.zoom); ctx.translate(-zx, -zy); }
   ctx.drawImage(bg, 0, 0, view.w, view.h);
   if (!G) return;
   ctx.save(); ctx.translate(view.ox, view.oy); ctx.scale(view.s, view.s);
@@ -1293,8 +1333,14 @@ function draw() {
     for (const st of G.sites) for (const a of G.assets) { ctx.globalAlpha = .05 + .45 * a.tw; ctx.beginPath(); ctx.moveTo(st.x, st.y); ctx.lineTo(a.x, a.y); ctx.stroke(); }
     ctx.restore();
   }
+  for (const c of G.craters) sym(c.x, c.y, () => {
+    const r = view.R * 1.25; ctx.fillStyle = 'rgba(14,8,8,.85)'; ctx.beginPath(); ctx.ellipse(0, 0, r, r * .7, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,90,60,.55)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(0, 0, r, r * .7, 0, 0, 7); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,150,100,.5)'; ctx.beginPath(); ctx.moveTo(-r * .5, -r * .3); ctx.lineTo(r * .5, r * .3); ctx.moveTo(r * .5, -r * .3); ctx.lineTo(-r * .5, r * .3); ctx.stroke();
+  });
   for (const s of G.sites) if (s.alive) drawSite(s);
   for (const a of G.assets) drawAsset(a);
+  if (G.victory && G.hl) sym(G.hl.x, G.hl.y, () => { bracket(view.R * 2.6); label('★ ' + tr('vic.best', { n: G.hl.name, hp: Math.round(G.hl.hp) }), 0, -view.R * 3.4, C.amber, 11); });
   for (const u of G.units) drawUnit(u);
   for (const t of G.threats) if (t.alive && t.tracked) drawThreat(t);
   // misiles
@@ -1312,6 +1358,7 @@ function draw() {
   }
   for (const f of G.floats) sym(f.x, f.y, () => { ctx.globalAlpha = Math.max(0, 1 - f.t / 1.1); label(f.txt, 0, -f.t * 24, f.col, 13); });
   drawGhost();
+  if (FXS.pulse > 0) { const cp = capital(); if (cp) { ctx.save(); ctx.strokeStyle = 'rgba(53,208,127,' + (.75 * FXS.pulse) + ')'; ctx.lineWidth = 3 / view.s; ctx.beginPath(); ctx.arc(cp.x, cp.y, (1 - FXS.pulse) * 1400, 0, 7); ctx.stroke(); ctx.restore(); } }
   ctx.restore();
   if (FXS.flash > 0) {
     ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
@@ -1328,25 +1375,182 @@ function draw() {
 
 /* ============================ PANTALLAS ============================ */
 function showOverlay(html) { const o = $('#overlay'); o.innerHTML = '<div class="screen"><div class="box">' + html + '</div></div>'; o.classList.remove('hidden'); return o; }
-function progress() { const s = saveGet(); s.stars = s.stars || {}; s.up = s.up || {}; s.cp = s.cp || 0; return s; }
+function progress() { const s = saveGet(); s.stars = s.stars || {}; s.up = s.up || {}; s.cp = s.cp || 0; s.ach = s.ach || {}; s.life = s.life || {}; s.medals = s.medals || {}; s.rec = s.rec || {}; return s; }
 function unlocked(n) { return n === 1 || (progress().stars[n - 1] > 0) || /[?&]unlock/.test(location.search); }
+/* ============================ META: medallas, logros, récords, cosmética ============================ */
+const SURG = .5, EAGLE = .55;   // umbrales de las medallas «Cirujano» (ratio coste) y «Ojo de águila» (detección temprana)
+const MEDALS = [
+  { id: 'flawless', pm: 6, avail: () => true, ok: s => s.leaked === 0 },
+  { id: 'surgeon', pm: 6, avail: () => true, ok: s => s.kills >= 6 && s.value > 0 && s.spent / s.value <= SURG },
+  { id: 'eagle', pm: 6, avail: () => true, ok: s => s.detN >= 6 && s.detSum / s.detN >= EAGLE },
+  { id: 'silence', pm: 8, avail: lv => lv.n >= 4, ok: s => s.armLost >= 1 && !(s.leakKind && s.leakKind.arm) },
+  { id: 'preempt', pm: 8, avail: lv => lv.waves.length >= 4, ok: s => s.earlySite }
+];
+const medalsFor = lv => MEDALS.filter(m => m.avail(lv));
+function medalLive(m) {
+  const s = G.stats;
+  switch (m.id) {
+    case 'flawless': return s.leaked > 0 ? 'fail' : 'pend';
+    case 'silence': return s.leakKind && s.leakKind.arm ? 'fail' : s.armLost >= 1 ? 'ok' : 'pend';
+    case 'preempt': return s.earlySite ? 'ok' : G.waveIdx > 2 ? 'fail' : 'pend';
+    default: return m.ok(s) ? 'ok' : 'pend';
+  }
+}
+const TL = () => Math.max(1, THEATERS.length);
+const levelsOf = k => { const a = []; for (let n = 1; n <= 12; n++) if ((n - 1) % TL() === k) a.push(n); return a; };
+const secured = (p, k) => levelsOf(k).every(n => p.stars[n] > 0);
+const securedCount = p => { let c = 0; for (let k = 0; k < TL(); k++) if (secured(p, k)) c++; return c; };
+const starsTotal = p => Object.values(p.stars).reduce((a, b) => a + b, 0);
+const medalCount = p => Object.values(p.medals).reduce((a, m) => a + Object.keys(m).length, 0);
+function effLife(p) {   // contadores de por vida + el nivel en curso (para logros en directo)
+  const L = Object.assign({ kills: 0, bal: 0, cruise: 0, drone: 0, arm: 0, armLost: 0, sites: 0, sorties: 0, cleanWaves: 0, won: 0, played: 0, flawless: 0, econ: 0, narrow: 0, bestStreak: 0 }, p.life);
+  if (G && !G.over && !G.demo) {
+    const s = G.stats; L.kills += s.kills; L.bal += s.killKind.ballistic || 0; L.armLost += s.armLost; L.sites += s.sitesKilled; L.cleanWaves += s.cleanWaves; L.bestStreak = Math.max(L.bestStreak, s.bestStreak);
+  }
+  return L;
+}
+const ACH = [
+  { id: 'first', pm: 10, goal: 1, v: (p, L) => L.won },
+  { id: 'kills100', pm: 5, goal: 100, v: (p, L) => L.kills },
+  { id: 'kills1000', pm: 30, goal: 1000, v: (p, L) => L.kills },
+  { id: 'bal25', pm: 15, goal: 25, v: (p, L) => L.bal },
+  { id: 'arm10', pm: 15, goal: 10, v: (p, L) => L.armLost },
+  { id: 'sites20', pm: 15, goal: 20, v: (p, L) => L.sites },
+  { id: 'flawless1', pm: 10, goal: 1, v: (p, L) => L.flawless },
+  { id: 'flawless10', pm: 30, goal: 10, v: (p, L) => L.flawless },
+  { id: 'econ', pm: 10, goal: 1, v: (p, L) => L.econ },
+  { id: 'streak20', pm: 10, goal: 20, v: (p, L) => L.bestStreak },
+  { id: 'clean25', pm: 15, goal: 25, v: (p, L) => L.cleanWaves },
+  { id: 'narrow', pm: 10, goal: 1, v: (p, L) => L.narrow },
+  { id: 'medals10', pm: 15, goal: 10, v: p => medalCount(p) },
+  { id: 'medals25', pm: 30, goal: 25, v: p => medalCount(p) },
+  { id: 'theater1', pm: 20, goal: 1, v: p => securedCount(p) },
+  { id: 'theater3', pm: 40, goal: 3, v: p => securedCount(p) },
+  { id: 'stars24', pm: 25, goal: 24, v: p => starsTotal(p) },
+  { id: 'stars36', pm: 50, goal: 36, v: p => starsTotal(p) }
+];
+function checkAch(silent) {
+  const p = progress(), L = effLife(p), out = [];
+  for (const a of ACH) { if (p.ach[a.id]) continue; if (a.v(p, L) >= a.goal) { p.ach[a.id] = Date.now(); p.cp += a.pm; out.push(a); } }
+  if (out.length) {
+    savePut(p); refreshCos();
+    if (!silent) { out.forEach(a => toast('🏆 ' + tr('ach.' + a.id + '.name') + ' · +' + a.pm + ' ' + tr('unit.pm'), 'ach')); SND.ach(); buzz(40); }
+  }
+  return out;
+}
+/* cosmética desbloqueable: estelas y tinte de los símbolos propios */
+const COS = {
+  trail: [{ id: 'blue', col: '#3ea6ff' }, { id: 'cyan', col: '#4fe0e8', lvl: 6 }, { id: 'amber', col: '#ffb020', ach: 'econ' }, { id: 'green', col: '#35d07f', ach: 'theater1' }, { id: 'white', col: '#e4f3ff', ach: 'stars24' }],
+  tint: [{ id: 'blue', col: '#3ea6ff' }, { id: 'cyan', col: '#4fe0e8', lvl: 6 }, { id: 'aqua', col: '#3fe0b0', ach: 'flawless10' }, { id: 'violet', col: '#b69cff', ach: 'theater3' }]
+};
+const cosCache = { trail: '#3ea6ff', tint: '#3ea6ff', id: { trail: 'blue', tint: 'blue' } };
+const cosOpen = (c, p) => (!c.lvl && !c.ach) || (c.lvl && p.stars[c.lvl] > 0) || (c.ach && p.ach[c.ach]);
+function refreshCos() {
+  const p = progress();
+  for (const kind of ['trail', 'tint']) {
+    const l = COS[kind], want = (SET.cos || {})[kind], c = l.find(x => x.id === want && cosOpen(x, p)) || l[0];
+    cosCache[kind] = c.col; cosCache.id[kind] = c.id;
+  }
+}
+/* resumen en prosa del parte de situación */
+function sitrep(win, ig) {
+  const kk = G.stats.killKind, parts = [];
+  for (const k of ['drone', 'cruise', 'ballistic', 'arm']) if (kk[k]) parts.push(tr('sum.' + k, { n: kk[k] }));
+  const sum = !parts.length ? tr('sum.none') : parts.length === 1 ? parts[0] : parts.slice(0, -1).join(', ') + tr('sum.and') + parts[parts.length - 1];
+  const v = (G.n + G.stats.kills) % (win ? 3 : 2);
+  return tr('sit.' + (win ? 'w' : 'l') + v, { city: capital().name, sum, ig, theater: tr('th.' + MAP.T.id + '.name') });
+}
+function unlockCards(n) {
+  const nx = n + 1, c = [];
+  if (nx > 12) return c;
+  for (const D of Object.values(SAM)) if (D.unlock === nx) c.push({ t: 'unit', name: D.name, desc: D.desc });
+  for (const D of Object.values(AIR)) if (D.unlock === nx) c.push({ t: 'unit', name: D.name, desc: D.role });
+  if (nx <= THEATERS.length) { const T = THEATERS[nx - 1]; c.push({ t: 'theater', name: tr('th.' + T.id + '.name'), desc: tr('th.' + T.id + '.sub') }); }
+  const thr = { 3: ['decoy'], 4: ['cruise', 'arm'], 6: ['ballistic'] }[nx];
+  if (thr) thr.forEach(k => c.push({ t: 'threat', name: THREAT[k].name, desc: tr('thr.' + k + '.d') }));
+  return c;
+}
 function showMenu() {
   if (G) { G.speed = 0; }
   const o = showOverlay('<h1 class="title">C2<em>HELL</em></h1><div class="tag">AIR DEFENSE COMMAND &amp; CONTROL — LITE SIM</div>' +
-    '<button class="big go" data-a="camp">' + tr('m.camp') + '</button><button class="big" data-a="help">' + tr('m.help') + '</button><button class="big" data-a="set">' + tr('m.set') + '</button>' + (G && !G.over && !G.demo ? '<button class="big" data-a="resume">' + tr('m.resume') + '</button>' : ''));
-  $('[data-a=camp]', o).onclick = showLevels; $('[data-a=help]', o).onclick = () => showHelp(showMenu); $('[data-a=set]', o).onclick = () => showSettings(showMenu);
+    '<button class="big go" data-a="camp">' + tr('m.camp') + '</button><button class="big" data-a="ach">' + tr('m.ach', { a: Object.keys(progress().ach).length, b: ACH.length }) + '</button><button class="big" data-a="help">' + tr('m.help') + '</button><button class="big" data-a="set">' + tr('m.set') + '</button>' + (G && !G.over && !G.demo ? '<button class="big" data-a="resume">' + tr('m.resume') + '</button>' : ''));
+  $('[data-a=camp]', o).onclick = showLevels; $('[data-a=ach]', o).onclick = () => showAch(showMenu); $('[data-a=help]', o).onclick = () => showHelp(showMenu); $('[data-a=set]', o).onclick = () => showSettings(showMenu);
   const r = $('[data-a=resume]', o); if (r) r.onclick = () => o.classList.add('hidden');
 }
-function showLevels() {
-  const p = progress(); let h = '<h2>' + tr('lv.title') + '</h2><div class="kv"><span>' + tr('lv.cp') + '</span><span class="amber">' + p.cp + ' ' + tr('unit.pm') + '</span></div><button class="big" data-a="upg">' + tr('lv.upg') + '</button><div class="lvls">';
-  for (let n = 1; n <= 12; n++) {
-    const st = p.stars[n] || 0;
-    h += '<button class="lv" data-n="' + n + '"' + (unlocked(n) ? '' : ' disabled') + '>' + n + '<small>' + '★'.repeat(st) + '☆'.repeat(3 - st) + '</small><span class="th">' + (THEATERS[(n - 1) % THEATERS.length] ? THEATERS[(n - 1) % THEATERS.length].id.slice(0, 3).toUpperCase() : '') + '</span></button>';
+function drawMini(cv2, T, st) {
+  const c = cv2.getContext('2d'), W = cv2.width, H = cv2.height, sx = W / 1000, sy = H / 600;
+  const pr = (lat, lon) => [(500 + (lon - T.lonC) * T.kx) * sx, (300 - (lat - T.latC) * T.ky) * sy];
+  c.fillStyle = '#09141d'; c.fillRect(0, 0, W, H);
+  const col = { f: ['#16384c', 'rgba(62,166,255,.8)'], h: ['#271a1d', 'rgba(255,90,90,.5)'], n: ['#161e24', 'rgba(140,160,175,.3)'] };
+  if (st === 'sec') { col.f = ['#1d4f6e', 'rgba(110,200,255,.95)']; col.h = ['#0f0a0c', 'rgba(110,60,60,.35)']; }
+  if (st === 'lock') { col.f = ['#12181e', 'rgba(110,125,135,.35)']; col.h = ['#14171a', 'rgba(110,100,100,.3)']; col.n = ['#101519', 'rgba(110,125,135,.2)']; }
+  c.lineJoin = 'round';
+  for (const co of T.countries) {
+    const [f, s] = col[co.s]; c.fillStyle = f; c.strokeStyle = s; c.lineWidth = 1.2;
+    for (const r of co.r) { c.beginPath(); r.forEach((q, i) => { const p = pr(q[1], q[0]); if (i) c.lineTo(p[0], p[1]); else c.moveTo(p[0], p[1]); }); c.closePath(); c.fill(); c.stroke(); }
   }
-  const o = showOverlay(h + '</div><button class="big" data-a="back">' + tr('back.menu') + '</button>');
-  $$('.lv', o).forEach(b => b.onclick = () => showBrief(+b.dataset.n));
+  for (const q of T.sites) {
+    const p = pr(q[0], q[1]); c.strokeStyle = st === 'sec' ? 'rgba(150,110,110,.7)' : st === 'lock' ? 'rgba(130,120,120,.5)' : '#ff5a5a'; c.lineWidth = 1.6; c.beginPath();
+    if (st === 'sec') { c.moveTo(p[0] - 4, p[1] - 4); c.lineTo(p[0] + 4, p[1] + 4); c.moveTo(p[0] + 4, p[1] - 4); c.lineTo(p[0] - 4, p[1] + 4); }
+    else { c.moveTo(p[0], p[1] - 5); c.lineTo(p[0] + 5, p[1]); c.lineTo(p[0], p[1] + 5); c.lineTo(p[0] - 5, p[1]); c.closePath(); }
+    c.stroke();
+  }
+}
+function showLevels() {
+  const p = progress();
+  let h = '<h2>' + tr('lv.title') + '</h2><div class="kv"><span>' + tr('lv.cp') + '</span><span class="amber">' + p.cp + ' ' + tr('unit.pm') + '</span><span>' + tr('lv.stars') + '</span><span>' + starsTotal(p) + '/36</span><span>' + tr('lv.medals') + '</span><span>' + medalCount(p) + '</span></div>' +
+    '<div class="row3"><button class="big" data-a="upg">' + tr('camp.upg') + '</button><button class="big" data-a="ach">' + tr('camp.ach', { a: Object.keys(p.ach).length, b: ACH.length }) + '</button><button class="big" data-a="cos">' + tr('camp.cos') + '</button></div>';
+  const nodePos = [];
+  for (let k = 0; k < TL(); k++) {
+    const T = THEATERS[k], lvls = levelsOf(k), done = lvls.filter(n => p.stars[n] > 0).length, sec = done === lvls.length, lock = !unlocked(lvls[0]);
+    const pos = lvls.map((n, i) => { const a = T.assets[i % T.assets.length]; return [(500 + (a.lon - T.lonC) * T.kx) / 10, (300 - (a.lat - T.latC) * T.ky) / 6]; });
+    const kx = 3.87, ky = 2.32;   // % → px aproximado de la tarjeta (ancho ≈ 387 px, alto ≈ 232 px)
+    for (let it = 0; it < 60; it++) for (let i = 0; i < pos.length; i++) for (let j = i + 1; j < pos.length; j++) {   // separa nodos solapados
+      const dx = (pos[j][0] - pos[i][0]) * kx, dy = (pos[j][1] - pos[i][1]) * ky, d = Math.hypot(dx, dy) || .01;
+      if (d < 54) { const f = (54 - d) / 2 / d; pos[i][0] -= dx * f / kx; pos[j][0] += dx * f / kx; pos[i][1] -= dy * f / ky; pos[j][1] += dy * f / ky; }
+      for (const q of [pos[i], pos[j]]) { q[0] = clamp(q[0], 8, 92); q[1] = clamp(q[1], 14, 84); }
+    }
+    nodePos.push(pos);
+    const nodes = lvls.map((n, i) => {
+      const s = p.stars[n] || 0, open = unlocked(n), x = clamp(pos[i][0], 8, 92), y = clamp(pos[i][1], 12, 86);
+      return '<button class="nd ' + (s ? 'done' : open ? 'open' : 'lock') + '" data-n="' + n + '"' + (open ? '' : ' disabled') + ' style="left:' + x + '%;top:' + y + '%">' + n + '<small>' + '★'.repeat(s) + '☆'.repeat(3 - s) + '</small></button>';
+    }).join('');
+    h += '<div class="thc ' + (sec ? 'sec' : lock ? 'lock' : '') + '"><div class="thh"><b>' + tr('th.' + T.id + '.name') + '</b><small>' + tr('th.' + T.id + '.sub') + '</small><span class="bdg">' + (sec ? '✪ ' + tr('camp.secured') : done + '/' + lvls.length) + '</span></div><div class="thm"><canvas width="600" height="360" data-k="' + k + '"></canvas>' + nodes + '</div></div>';
+  }
+  const o = showOverlay(h + '<button class="big" data-a="back">' + tr('back.menu') + '</button>');
+  $$('canvas[data-k]', o).forEach(c2 => { const k = +c2.dataset.k, lvls = levelsOf(k); drawMini(c2, THEATERS[k], lvls.every(n => p.stars[n] > 0) ? 'sec' : !unlocked(lvls[0]) ? 'lock' : ''); });
+  $$('.nd', o).forEach(b => b.onclick = () => showBrief(+b.dataset.n));
   $('[data-a=back]', o).onclick = showMenu;
   $('[data-a=upg]', o).onclick = () => showUpgrades(showLevels);
+  $('[data-a=ach]', o).onclick = () => showAch(showLevels);
+  $('[data-a=cos]', o).onclick = () => showCosmetics(showLevels);
+}
+function showAch(back) {
+  const p = progress(), L = effLife(p);
+  let h = '<h2>' + tr('ach.title') + '</h2><div class="kv"><span>' + tr('ach.unlocked') + '</span><span class="amber">' + Object.keys(p.ach).length + '/' + ACH.length + '</span></div>';
+  for (const a of ACH) {
+    const got = p.ach[a.id], v = Math.min(a.goal, Math.floor(a.v(p, L)));
+    h += '<div class="achr' + (got ? ' got' : '') + '"><div class="ai">' + (got ? '🏆' : '○') + '</div><div class="at"><b>' + tr('ach.' + a.id + '.name') + '</b><div class="sub">' + tr('ach.' + a.id + '.d') + '</div>' +
+      (got ? '' : pb(v, a.goal, '#35d07f') + '<div class="sub">' + v + ' / ' + a.goal + '</div>') + '</div><div class="ar amber">+' + a.pm + ' ' + tr('unit.pm') + '</div></div>';
+  }
+  const o = showOverlay(h + '<button class="big" data-a="back">' + tr('back') + '</button>');
+  $('[data-a=back]', o).onclick = back || showMenu;
+}
+function showCosmetics(back) {
+  const p = progress();
+  let h = '<h2>' + tr('cos.title') + '</h2>';
+  for (const kind of ['trail', 'tint']) {
+    h += '<div class="sub" style="margin-top:12px">' + tr('cos.' + kind) + '</div><div class="swatches">';
+    for (const c of COS[kind]) {
+      const open = cosOpen(c, p);
+      h += '<button class="sw' + (cosCache.id[kind] === c.id ? ' sel' : '') + (open ? '' : ' lock') + '" data-k="' + kind + '" data-id="' + c.id + '"' + (open ? '' : ' disabled') + ' style="--c:' + c.col + '"><i></i><small>' +
+        (open ? tr('cos.c.' + c.id) : '🔒 ' + (c.lvl ? tr('cos.reqLvl', { n: c.lvl }) : tr('cos.reqAch', { a: tr('ach.' + c.ach + '.name') }))) + '</small></button>';
+    }
+    h += '</div>';
+  }
+  const o = showOverlay(h + '<button class="big" style="margin-top:16px" data-a="back">' + tr('back') + '</button>');
+  $$('.sw', o).forEach(b => b.onclick = () => { SET.cos = SET.cos || {}; SET.cos[b.dataset.k] = b.dataset.id; saveSet(); refreshCos(); showCosmetics(back); });
+  $('[data-a=back]', o).onclick = back || showMenu;
 }
 function showUpgrades(back) {
   const p = progress();
@@ -1367,11 +1571,13 @@ function showUpgrades(back) {
 function showBrief(n) {
   const lv = makeLevel(n), c = briefCounts(lv);
   const est = lv.spawnWin + 28;
+  const got = progress().medals[n] || {};
+  const mdl = '<div class="mdl"><b>' + tr('br.medals') + '</b>' + medalsFor(lv).map(m => '<div class="mrow' + (got[m.id] ? ' got' : '') + '"><span>' + (got[m.id] ? '✔ ' : '◇ ') + tr('medal.' + m.id) + ' <small>' + tr('medal.' + m.id + '.d') + '</small></span><span class="amber">+' + m.pm + '</span></div>').join('') + '</div>';
   const rows = [[tr('br.uas'), c.drone + c.decoy], [tr('br.cruise'), c.cruise], [tr('br.bal'), c.ballistic], [tr('br.arm'), c.arm]].filter(r => r[1] > 0)
     .map(r => '<span>' + r[0] + '</span><span>' + r[1] + '</span>').join('');
   const o = showOverlay('<h2>' + tr('br.title', { n, name: lv.name.toUpperCase() }) + '</h2><p>' + tr('br.intro') + '</p>' +
     '<div class="kv"><span>' + tr('br.theater') + '</span><span>' + (THEATERS[lv.theater] ? tr('th.' + THEATERS[lv.theater].id + '.name') : '') + '</span><span>' + tr('br.dur') + '</span><span>' + mmss(est) + '</span><span>' + tr('br.waves') + '</span><span>' + lv.waves.length + '</span><span>' + tr('br.sites') + '</span><span>' + lv.nSites + '</span><span>' + tr('br.credits') + '</span><span>' + lv.credits + '</span>' + rows + '</div>' +
-    '<p class="sub">' + tr('br.phases') + '</p>' +
+    mdl + '<p class="sub">' + tr('br.phases') + '</p>' +
     '<button class="big go" data-a="go">' + tr('br.go') + '</button><button class="big" data-a="back">' + tr('br.back') + '</button>');
   $('[data-a=go]', o).onclick = () => newGame(n); $('[data-a=back]', o).onclick = showLevels;
 }
@@ -1420,6 +1626,7 @@ function showPause() {
   if (!G || G.demo || G.over) { showMenu(); return; }
   const was = G.speed; if (was > 0) resumeSpeed = was; setSpeed(0);
   const o = showOverlay('<h2>' + tr('pz.title') + '</h2><div class="kv"><span>' + tr('pz.level') + '</span><span>' + G.n + ' — ' + G.lv.name + '</span><span>' + tr('pz.time') + '</span><span>' + mmss(G.t) + '</span><span>' + tr('p.integrity') + '</span><span>' + Math.round(integrity()) + '%</span><span>' + tr('pz.credits') + '</span><span>' + Math.floor(G.credits) + '</span></div>' +
+    '<div class="mdl"><b>' + tr('br.medals') + '</b>' + medalsFor(G.lv).map(m => { const sv = medalLive(m); return '<div class="mrow ' + sv + '"><span>' + (sv === 'ok' ? '✔ ' : sv === 'fail' ? '✕ ' : '○ ') + tr('medal.' + m.id) + '</span><span class="amber">+' + m.pm + '</span></div>'; }).join('') + '</div>' +
     '<button class="big go" data-a="res">' + tr('pz.resume') + '</button><button class="big" data-a="restart">' + tr('pz.restart') + '</button><button class="big" data-a="set">' + tr('m.set') + '</button><button class="big" data-a="help">' + tr('m.help') + '</button><button class="big" data-a="quit">' + tr('pz.quit') + '</button>');
   const back = () => showPause();
   $('[data-a=res]', o).onclick = () => { o.classList.add('hidden'); if (was > 0) setSpeed(resumeSpeed); };
@@ -1465,40 +1672,117 @@ function endTips(win, st) {
 }
 function endLevel(win) {
   G.over = true; setSpeed(0);
+  const s = G.stats, lv = G.lv, n = G.n;
   const ig = Math.round(integrity()), st = win ? (ig >= 90 ? 3 : ig >= 65 ? 2 : 1) : 0;
-  const s = G.stats;
-  const pm = (win ? 15 + 10 * st + (progress().stars[G.n] ? 0 : 15) : 0) + Math.floor(s.kills / 8);
-  { const p = progress(); if (win) p.stars[G.n] = Math.max(p.stars[G.n] || 0, st); p.cp += pm; savePut(p); }
-  const ratio = s.value > 0 ? (s.spent / s.value) : 0;
-  const tips = endTips(win, st), tipsHtml = tips.length ? '<div class="tips"><b>' + tr('end.tips') + '</b><ul>' + tips.map(x => '<li>' + x + '</li>').join('') + '</ul></div>' : '';
+  const ratio = s.value > 0 ? s.spent / s.value : 0;
+  const econ = win && s.kills >= 6 && ratio <= SURG;
+  const p = progress(), firstWin = win && !p.stars[n];
+  const got = (p.medals[n] = p.medals[n] || {});
+  const medals = medalsFor(lv).map(m => { const ok = win && m.ok(s, lv), isNew = ok && !got[m.id]; if (isNew) got[m.id] = 1; return { m, ok, isNew }; });
+  const medalPM = medals.reduce((a, x) => a + (x.isNew ? x.m.pm : 0), 0);
+  const pm = (win ? 15 + 10 * st + (firstWin ? 15 : 0) : 0) + Math.floor(s.kills / 8) + medalPM;
+  // récords por nivel
+  const recs = [];
+  if (win) {
+    const prev = p.rec[n], nr = Object.assign({}, prev || {}), rat = s.kills >= 6 ? Math.round(ratio * 100) / 100 : null, tm = Math.round(G.t);
+    if (!prev || ig > prev.ig) { if (prev) recs.push({ k: 'ig', a: ig + '%', b: prev.ig + '%' }); nr.ig = ig; }
+    if (rat !== null && (prev == null || prev.ratio == null || rat < prev.ratio)) { if (prev && prev.ratio != null) recs.push({ k: 'ratio', a: rat.toFixed(2), b: prev.ratio.toFixed(2) }); nr.ratio = rat; }
+    if (!prev || tm < prev.time) { if (prev) recs.push({ k: 'time', a: mmss(tm), b: mmss(prev.time) }); nr.time = tm; }
+    p.rec[n] = nr;
+  }
+  // contadores de por vida
+  const L = p.life, add = (k, v) => { L[k] = (L[k] || 0) + v; };
+  add('played', 1); add('kills', s.kills); add('bal', s.killKind.ballistic || 0); add('cruise', s.killKind.cruise || 0); add('drone', s.killKind.drone || 0); add('arm', s.killKind.arm || 0);
+  add('armLost', s.armLost); add('sites', s.sitesKilled); add('sorties', s.sorties); add('cleanWaves', s.cleanWaves); L.bestStreak = Math.max(L.bestStreak || 0, s.bestStreak);
+  if (win) { add('won', 1); if (s.leaked === 0) add('flawless', 1); if (econ) add('econ', 1); if (ig < 40) add('narrow', 1); p.stars[n] = Math.max(p.stars[n] || 0, st); }
+  p.cp += pm; savePut(p);
+  const ach = checkAch(true), unl = win ? unlockCards(n) : [];
   if (G.tut) endTut();
-  setTimeout(() => {
-    const o = showOverlay('<h2>' + (win ? tr('end.win') : tr('end.lose')) + '</h2><div class="stars">' + '★'.repeat(st) + '<span style="opacity:.25">' + '★'.repeat(3 - st) + '</span></div>' +
-      '<div class="kv"><span>' + tr('end.pm') + '</span><span class="amber">+' + pm + ' ' + tr('unit.pm') + '</span><span>' + tr('end.integ') + '</span><span>' + ig + '%</span><span>' + tr('end.kills') + '</span><span>' + s.kills + '</span><span>' + tr('end.leaked') + '</span><span>' + s.leaked + '</span>' +
-      '<span>' + tr('end.fired') + '</span><span>' + s.fired + '</span><span>' + tr('end.ratio') + '</span><span>' + ratio.toFixed(2) + '</span><span>' + tr('end.airLost') + '</span><span>' + s.airLost + '</span><span>' + tr('pz.time') + '</span><span>' + mmss(G.t) + '</span></div>' + tipsHtml +
-      (win && G.n < 12 ? '<button class="big go" data-a="next">' + tr('end.next') + '</button>' : '') + '<button class="big" data-a="upg">' + tr('end.upg', { cp: progress().cp, pm: tr('unit.pm') }) + '</button><button class="big" data-a="retry">' + tr('end.retry') + '</button><button class="big" data-a="menu">' + tr('end.menu') + '</button>');
-    const q = a => $('[data-a=' + a + ']', o);
-    if (q('next')) q('next').onclick = () => showBrief(G.n + 1);
-    if (q('upg')) q('upg').onclick = () => showUpgrades(() => showLevels());
-    q('retry').onclick = () => newGame(G.n); q('menu').onclick = showLevels;
-  }, 900);
+  const data = { win, st, ig, ratio, econ, pm, medals, recs, unl, ach, tips: endTips(win, st), sit: sitrep(win, ig), firstWin };
+  if (win) startVictory(data);
+  else { SND.lose(); buzz(120); setTimeout(() => showEnd(data), 900); }
+}
+function startVictory(data) {   // vuelta de honor: zoom al activo mejor defendido + celebración, luego la pantalla de resultados
+  let best = null;
+  for (const a of G.assets) if (a.hp > 0 && (!best || a.hp > best.hp || (a.hp === best.hp && a.type === 'capital'))) best = a;
+  G.hl = best; G.victory = { t: 0, shown: false, cb: () => showEnd(data) };
+  banner(tr('end.win') + '<small>' + tr('vic.sub', { n: G.lv.name }) + '</small>');
+  SND.fanfare(); buzz(60); FXS.pulse = 1;
+}
+function victoryTick(dt) {
+  const V = G.victory; V.t += dt;
+  const k = Math.min(1, V.t / 2.2); G.zoom = 1 + .28 * (k * k * (3 - 2 * k));
+  G.assets.forEach((a, i) => { if (!V['f' + i] && V.t > .3 + .25 * i && a.hp > 0) { V['f' + i] = 1; fx(a.x, a.y, C.green, 46, 1.1); fx(a.x, a.y, C.blue, 70, 1.4); } });
+  if (!V.shown && V.t > 3.6) { V.shown = true; V.cb(); }
+}
+const cntFmt = (el, v) => { const d = +el.dataset.dec || 0; el.textContent = (el.dataset.pre || '') + (d ? v.toFixed(d) : Math.round(v)) + (el.dataset.suf || ''); };
+function showEnd(d) {
+  const s = G.stats, win = d.win;
+  const cnt = (to, o) => { o = o || {}; return '<span class="cnt" data-to="' + to + '"' + (o.pre ? ' data-pre="' + o.pre + '"' : '') + (o.suf ? ' data-suf="' + o.suf + '"' : '') + (o.dec ? ' data-dec="' + o.dec + '"' : '') + '>' + (o.pre || '') + (o.dec ? (0).toFixed(o.dec) : '0') + (o.suf || '') + '</span>'; };
+  const starsH = '<div class="stars" id="st">' + [0, 1, 2].map(i => '<span class="sx' + (i < d.st ? ' fill' : '') + '">★</span>').join('') + '</div>';
+  const tags = [];
+  if (d.econ) tags.push('<div class="tag gold">' + tr('end.econ') + '<small>' + tr('end.econSub', { r: d.ratio.toFixed(2) }) + '</small></div>');
+  for (const r of d.recs) tags.push('<div class="tag rec">' + tr('end.rec.' + r.k) + ' <b>' + r.a + '</b><small>' + tr('end.recPrev', { b: r.b }) + '</small></div>');
+  const kv = '<div class="kv pre" id="kv"><span>' + tr('end.pm') + '</span>' + cnt(d.pm, { pre: '+', suf: ' ' + tr('unit.pm') }).replace('class="cnt"', 'class="cnt amber"') +
+    '<span>' + tr('end.integ') + '</span>' + cnt(d.ig, { suf: '%' }) + '<span>' + tr('end.kills') + '</span>' + cnt(s.kills) + '<span>' + tr('end.leaked') + '</span>' + cnt(s.leaked) +
+    '<span>' + tr('end.fired') + '</span>' + cnt(s.fired) + '<span>' + tr('end.ratio') + '</span>' + cnt(d.ratio, { dec: 2 }) + '<span>' + tr('end.airLost') + '</span>' + cnt(s.airLost) +
+    '<span>' + tr('end.streak') + '</span>' + cnt(s.bestStreak) + '<span>' + tr('end.clean') + '</span><span>' + s.cleanWaves + '/' + G.lv.waves.length + '</span><span>' + tr('pz.time') + '</span><span>' + mmss(G.t) + '</span></div>';
+  const medH = win ? '<div class="medals pre" id="md"><div class="sub">' + tr('end.medals') + '</div>' + d.medals.map((x, i) => '<div class="md ' + (x.ok ? 'ok' : 'no') + (x.isNew ? ' new' : '') + '" style="animation-delay:' + (i * .22) + 's"><b>' + (x.ok ? '✔ ' : '✕ ') + tr('medal.' + x.m.id) + '</b><small>' + tr('medal.' + x.m.id + '.d') + '</small>' + (x.isNew ? '<span class="pmx">+' + x.m.pm + ' ' + tr('unit.pm') + '</span>' : '') + '</div>').join('') + '</div>' : '';
+  const unlH = d.unl.length ? '<div class="unls pre" id="ul">' + d.unl.map((u, i) => '<div class="unl" style="animation-delay:' + (i * .18) + 's"><span class="nb">' + tr('unl.' + u.t) + '</span><b>' + u.name + '</b><small>' + u.desc + '</small></div>').join('') + '</div>' : '';
+  const achH = d.ach.length ? '<div class="unls pre" id="ac">' + d.ach.map((a, i) => '<div class="unl gold" style="animation-delay:' + (i * .18) + 's"><span class="nb">🏆 ' + tr('end.achNew') + '</span><b>' + tr('ach.' + a.id + '.name') + '</b><small>' + tr('ach.' + a.id + '.d') + ' · +' + a.pm + ' ' + tr('unit.pm') + '</small></div>').join('') + '</div>' : '';
+  const sitH = '<div class="sitrep pre" id="sit"><b>' + tr('end.sitrep') + '</b> ' + d.sit + '</div>';
+  const tipsH = d.tips.length ? '<div class="tips pre" id="tp"><b>' + tr('end.tips') + '</b><ul>' + d.tips.map(x => '<li>' + x + '</li>').join('') + '</ul></div>' : '';
+  const btns = '<div class="endbtns pre" id="eb">' + (win && G.n < 12 ? '<button class="big go" data-a="next">' + tr('end.next') + '</button>' : '') + '<button class="big" data-a="upg">' + tr('end.upg', { cp: progress().cp, pm: tr('unit.pm') }) + '</button><button class="big" data-a="retry">' + tr('end.retry') + '</button><button class="big" data-a="menu">' + tr('end.menu') + '</button></div>';
+  const o = showOverlay('<h2 class="stamp ' + (win ? 'win' : 'lose') + ' pre" id="stamp">' + (win ? tr('end.win') : tr('end.lose')) + '</h2>' + (win ? starsH : '') + '<div class="tags" id="tg"></div>' + kv + medH + sitH + unlH + achH + tipsH + btns);
+  $('#tg', o).innerHTML = tags.join('');
+  const q = a => $('[data-a=' + a + ']', o);
+  if (q('next')) q('next').onclick = () => showBrief(G.n + 1);
+  q('upg').onclick = () => showUpgrades(() => showLevels());
+  q('retry').onclick = () => newGame(G.n); q('menu').onclick = showLevels;
+  // secuencia de revelado (toca la pantalla para saltarla)
+  const show = id => { const e = $('#' + id, o); if (e) { e.classList.remove('pre'); e.classList.add('rv'); } };
+  let raf = 0;
+  const animCounters = skip => {
+    const els = $$('.cnt', o); show('kv');
+    if (skip) { els.forEach(e => cntFmt(e, +e.dataset.to)); return; }
+    const t0 = performance.now(), dur = 1100;
+    const run = now => { const k = Math.min(1, (now - t0) / dur), e2 = 1 - Math.pow(1 - k, 3); els.forEach(e => cntFmt(e, +e.dataset.to * e2)); if (Math.floor(k * 14) !== animCounters.last) { animCounters.last = Math.floor(k * 14); SND.tick(); } if (k < 1) raf = requestAnimationFrame(run); };
+    raf = requestAnimationFrame(run);
+  };
+  const steps = [{ d: 100, fn: () => show('stamp') }];
+  if (win) for (let i = 0; i < 3; i++) steps.push({ d: 520, fn: skip => { const e = $$('.sx', o)[i]; if (e && i < d.st) { e.classList.add('on'); if (!skip) { SND.star(i); buzz(30); } } } });
+  steps.push({ d: 400, fn: animCounters });
+  steps.push({ d: 1250, fn: skip => { $$('.tag', o).forEach((e, i) => { e.style.animationDelay = (i * .2) + 's'; e.classList.add('rv'); }); if (!skip && $$('.tag', o).length) SND.chime(); } });
+  steps.push({ d: 450, fn: skip => { show('md'); if (!skip) d.medals.forEach((x, i) => { if (x.ok) setTimeout(() => SND.chime(), 150 + i * 220); }); } });
+  steps.push({ d: 700, fn: () => show('sit') });
+  steps.push({ d: 500, fn: skip => { show('ul'); if (!skip && d.unl.length) SND.ach(); } });
+  steps.push({ d: 500, fn: skip => { show('ac'); if (!skip && d.ach.length) SND.ach(); } });
+  steps.push({ d: 300, fn: () => { show('tp'); show('eb'); } });
+  let i = 0, timer = 0, fin = false;
+  const next = () => { if (fin) return; if (i >= steps.length) return; const s2 = steps[i++]; timer = setTimeout(() => { s2.fn(false); next(); }, s2.d); };
+  const finish = () => { if (fin) return; fin = true; clearTimeout(timer); cancelAnimationFrame(raf); while (i < steps.length) steps[i++].fn(true); $$('.cnt', o).forEach(e => cntFmt(e, +e.dataset.to)); $$('.sx.fill', o).forEach(e => e.classList.add('on')); };
+  $('.box', o).addEventListener('pointerdown', e => { if (!e.target.closest('button')) finish(); });
+  next();
 }
 
 /* ============================ ARRANQUE ============================ */
 let last = 0;
 function frame(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now;
-  if (G && !G.over && G.speed > 0) {
+  if (FXS.hold > 0) FXS.hold = Math.max(0, FXS.hold - dt);
+  FXS.pulse = Math.max(0, FXS.pulse - dt * .7);
+  if (G && !G.over && G.speed > 0 && !(FXS.hold > 0)) {
     let rem = dt * G.speed;
     while (rem > 0 && !G.over) { const h = Math.min(rem, 1 / 30); step(h); rem -= h; }
-  } else if (G && G.over) { for (const e of G.fx) e.t += dt; G.fx = G.fx.filter(e => e.t < e.dur); G.floats.forEach(f => f.t += dt); G.floats = G.floats.filter(f => f.t < 1.1); }
+  } else if (G && !G.over && FXS.hold > 0) { /* hitstop */ } else if (G && G.over) { const fd = G.victory ? dt * .5 : dt; if (G.victory) victoryTick(dt); for (const e of G.fx) e.t += fd; G.fx = G.fx.filter(e => e.t < e.dur); G.floats.forEach(f => f.t += fd); G.floats = G.floats.filter(f => f.t < 1.1); }
   FXS.shake = Math.max(0, FXS.shake - dt * 1.8); FXS.flash = Math.max(0, FXS.flash - dt * .9);
   draw();
   requestAnimationFrame(frame);
 }
-let slow = 0;
+let slow = 0, achTick = 0;
 setInterval(() => {
   if (!G) return;
+  if (!G.over && !G.demo && ++achTick % 4 === 0) checkAch();
   refreshTop(); refreshDock(); tutTick();
   if (G.sel) { if (G.sel.kind === 'threat' && !G.sel.ref.alive) hidePanel(); else if (G.sel.kind === 'air' && !G.air.includes(G.sel.ref)) hidePanel(); else renderPanel(); }
 }, 250);
@@ -1533,12 +1817,12 @@ function init() {
   $('#mapwrap').appendChild(rot); $('button', rot).onclick = () => { rot.dataset.off = 1; rot.classList.add('hidden'); };
   window.__rot = () => { const show = innerWidth > innerHeight * 1.15 && ('ontouchstart' in window) && !rot.dataset.off; rot.classList.toggle('hidden', !show); };
   document.addEventListener('gesturestart', e => e.preventDefault());
-  loadNTDS();
+  loadNTDS(); SET.cos = SET.cos || {}; refreshCos();
   newGame(1); G.demo = true; G.tut = null; setHint(null); setSpeed(0);
   resize(); showMenu();
   requestAnimationFrame(t => { last = t; frame(t); });
   const m = /[?&]level=(\d+)/.exec(location.search); if (m) { $('#overlay').classList.add('hidden'); newGame(+m[1]); }
 }
-window.__C2 = { I18N, tr, applyLang, SET, restockAll, showPause, showSettings, tutTick, TUT, get G() { return G; }, get MAP() { return MAP; }, newGame, step, setSpeed, startOps, SAM, AIR, THREAT, makeLevel, placeUnit, launchMission, missionStation, firstReady, bestReady, inPoly, onLand, toggleEmit, emitters, isEmitting, airbases, validPlace, resize, view, UI, select, buildDock, refreshDock };
+window.__C2 = { MEDALS, ACH, COS, checkAch, effLife, medalsFor, endLevel, showEnd, showLevels, showAch, showCosmetics, progress, I18N, tr, applyLang, SET, restockAll, showPause, showSettings, tutTick, TUT, get G() { return G; }, get MAP() { return MAP; }, newGame, step, setSpeed, startOps, SAM, AIR, THREAT, makeLevel, placeUnit, launchMission, missionStation, firstReady, bestReady, inPoly, onLand, toggleEmit, emitters, isEmitting, airbases, validPlace, resize, view, UI, select, buildDock, refreshDock };
 init();
 })();

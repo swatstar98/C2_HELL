@@ -141,3 +141,87 @@ button{font:inherit;color:inherit;cursor:pointer}
 .lv .th{display:block;font:9px var(--mono);color:var(--dim);letter-spacing:.1em}
 @media (max-width:380px){#top .r1{gap:4px}.stat{min-width:40px}.stat b{font-size:14px}}
 @media (min-width:700px) and (hover:hover){#app{box-shadow:0 0 60px rgba(0,0,0,.6)}}
+
+/* toasts (hitos / logros) */
+#toasts{position:absolute;left:50%;top:33%;transform:translateX(-50%);z-index:6;width:92%;display:flex;flex-direction:column;gap:4px;align-items:center;pointer-events:none}
+#toasts div{padding:5px 12px;border-radius:14px;background:rgba(10,17,24,.92);border:1px solid var(--blue);font:600 11px var(--mono);letter-spacing:.03em;animation:toastin .25s ease-out,fade 3.8s forwards;text-align:center}
+#toasts .gold{border-color:var(--amber);color:#ffe2a0;box-shadow:0 0 12px rgba(255,176,32,.25)}
+#toasts .warn{border-color:var(--red);color:#ffb3b3}
+#toasts .ach{border-color:#ffd84a;color:#fff1b8;box-shadow:0 0 16px rgba(255,216,74,.35);font-size:12px}
+@keyframes toastin{from{transform:translateY(-8px) scale(.92);opacity:0}to{transform:none;opacity:1}}
+
+/* campaña por teatros */
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.row3 .big{font-size:11px;padding:8px 6px;min-height:46px;letter-spacing:.03em;text-align:center;margin:6px 0}
+.thc{margin:12px 0;border:1px solid var(--line);border-radius:10px;background:var(--panel);overflow:hidden}
+.thc.lock{opacity:.55}
+.thc.sec{border-color:var(--blue);box-shadow:0 0 14px rgba(62,166,255,.18)}
+.thh{display:flex;align-items:baseline;gap:8px;padding:7px 10px;font:600 12px var(--mono)}
+.thh small{color:var(--dim);font-size:10px;flex:1}
+.bdg{font:700 10px var(--mono);color:var(--amber);letter-spacing:.08em}
+.thc.sec .bdg{color:var(--blue)}
+.thm{position:relative}
+.thm canvas{display:block;width:100%;height:auto}
+.nd{position:absolute;transform:translate(-50%,-50%);width:40px;min-height:40px;padding:0;border-radius:50%;background:rgba(10,20,30,.9);border:2px solid var(--blue);font:700 14px var(--mono);line-height:1}
+.nd small{display:block;position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:1px;font-size:9px;color:var(--amber);letter-spacing:1px;white-space:nowrap;text-shadow:0 0 3px #000}
+.nd.open{animation:nd 1.6s infinite;border-color:var(--amber)}
+.nd.done{border-color:var(--green)}
+.nd.lock{opacity:.4;border-color:#4a5a66}
+@keyframes nd{0%,100%{box-shadow:0 0 0 0 rgba(255,176,32,.5)}50%{box-shadow:0 0 0 8px rgba(255,176,32,0)}}
+/* medallas / objetivos */
+.mdl{margin:10px 0;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:rgba(255,255,255,.025)}
+.mdl>b{font:700 11px var(--mono);letter-spacing:.1em;color:var(--dim)}
+.mrow{display:flex;justify-content:space-between;gap:10px;font:12px var(--mono);margin:4px 0}
+.mrow small{display:block;color:var(--dim);font-size:10px}
+.mrow.got span:first-child,.mrow.ok span:first-child{color:var(--green)}
+.mrow.fail{opacity:.5;text-decoration:line-through}
+/* ceremonia de fin */
+.pre{visibility:hidden}
+.rv{animation:rv .45s ease-out both}
+@keyframes rv{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.stamp{font:800 26px var(--mono);letter-spacing:.14em;text-align:center;margin:6px 0 2px}
+.stamp.win{color:var(--green);text-shadow:0 0 18px rgba(53,208,127,.45)}
+.stamp.lose{color:var(--red)}
+.stamp.rv{animation:stamp .5s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes stamp{from{opacity:0;transform:scale(2.2)}to{opacity:1;transform:none}}
+.stars{text-align:center}
+.sx{display:inline-block;opacity:.18;transition:none}
+.sx.on{opacity:1;color:#ffd84a;text-shadow:0 0 14px rgba(255,216,74,.8);animation:starpop .5s cubic-bezier(.2,1.8,.4,1)}
+@keyframes starpop{from{transform:scale(0) rotate(-90deg)}to{transform:none}}
+.tags{display:flex;flex-direction:column;gap:6px;margin:6px 0}
+.tag{opacity:0;padding:6px 10px;border:1px solid var(--blue);border-radius:8px;font:700 12px var(--mono);letter-spacing:.05em}
+.tag.rv{opacity:1}
+.tag small{display:block;color:var(--dim);font-weight:400;font-size:10px}
+.tag.gold{border-color:var(--amber);color:#ffe2a0;background:rgba(255,176,32,.08)}
+.tag.rec{border-color:var(--green);color:#b8f2d3}
+.medals .sub{color:var(--dim);font:700 11px var(--mono);letter-spacing:.1em;margin-bottom:4px}
+.md{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;padding:5px 10px;margin:4px 0;border-radius:8px;border:1px solid var(--line);font:12px var(--mono);opacity:.5}
+.md small{width:100%;color:var(--dim);font-size:10px}
+.md.ok{opacity:1;border-color:var(--amber);background:rgba(255,176,32,.07);color:#ffe2a0}
+.md .pmx{margin-left:auto;color:var(--amber);font-weight:700}
+.medals.rv .md{animation:rv .4s both}
+.sitrep{margin:10px 0;padding:8px 12px;border-left:3px solid var(--blue);background:rgba(62,166,255,.06);font:12px/1.45 var(--mono);color:#b6cddb}
+.sitrep b{color:var(--blue);letter-spacing:.1em}
+.unl{margin:6px 0;padding:7px 10px;border:1px solid var(--cyan);border-radius:8px;background:rgba(79,224,232,.06);font:12px var(--mono)}
+.unl .nb{display:block;font:700 9px var(--mono);letter-spacing:.14em;color:var(--cyan)}
+.unl small{display:block;color:var(--dim);font-size:10px}
+.unl.gold{border-color:#ffd84a;background:rgba(255,216,74,.07)}
+.unl.gold .nb{color:#ffd84a}
+.unls.rv .unl{animation:rv .4s both}
+.cnt{font-variant-numeric:tabular-nums}
+/* logros y estilo */
+.achr{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;margin:6px 0;border:1px solid var(--line);border-radius:8px}
+.achr.got{border-color:#ffd84a;background:rgba(255,216,74,.06)}
+.achr .ai{width:24px;text-align:center;font-size:18px;color:var(--dim)}
+.achr .at{flex:1;font:12px var(--mono)}
+.achr .at b{font-size:13px}
+.achr .sub{color:var(--dim);font-size:10px;margin:2px 0}
+.achr .pb{height:6px;background:#0a1219;border:1px solid var(--line);margin:3px 0}
+.achr .pb i{display:block;height:100%;background:var(--green)}
+.achr .ar{font:700 11px var(--mono)}
+.swatches{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.sw{width:88px;padding:8px 4px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);text-align:center}
+.sw i{display:block;width:34px;height:6px;margin:0 auto 6px;border-radius:3px;background:var(--c);box-shadow:0 0 8px var(--c)}
+.sw small{display:block;font:10px var(--mono);color:var(--dim)}
+.sw.sel{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber)}
+.sw.lock{opacity:.45}
