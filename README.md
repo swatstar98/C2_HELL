@@ -24,7 +24,8 @@ También vale abrir `index.html` con doble clic; el service worker y el portapap
 |---|---|
 | `?unlock` | Todos los niveles y misiones desbloqueados (también salta el tutorial obligatorio) |
 | `?level=7` | Salta directamente al nivel 7 |
-| `?lang=es\|en\|fr\|de\|pt` | Fuerza idioma |
+| `?lang=es\|en\|fr\|de\|pt` | Idioma (solo si no hay uno guardado en `localStorage c2hell.lang`; en pruebas usa un contexto limpio) |
+| Zoom del mapa | Pellizco (2 dedos, también desplaza), rueda del ratón, botones +/− (el del medio ajusta a pantalla), teclas `+` `−` `0`; con zoom, un dedo arrastra el mapa en reposo y el botón derecho/central del ratón desplaza siempre |
 | `?store=sim` | Prueba la tienda con compras simuladas |
 
 ### Comandos npm
@@ -72,7 +73,7 @@ Está dividido por bloques con cabecera `/* ==== NOMBRE ==== */`; búscalos con 
 ## Tareas habituales
 
 ### Añadir o cambiar texto / idioma
-Claves en `lang/<idioma>.js`. Cada clave debe existir al menos en es y en; el resto cae a en. Para un idioma nuevo: crear `lang/xx.js`, añadirlo a `index.html` y `sw.js`, y registrarlo en `i18n.js`. Los textos de campañas usan `{es, en}` y se traducen aparte con `C2_HTR(id, lang, {'ruta|del|texto': '…'})` (ver `hist/korea_fr.js`); los `{placeholders}` deben coincidir en todos los idiomas.
+Claves en `lang/<idioma>.js`. Cada clave debe existir al menos en es y en; si falta en el idioma activo cae a en → es → la propia clave. Para un idioma nuevo: crear `lang/xx.js` que llame a `I18N.add('xx', {...})` y añadirlo a `index.html` y `sw.js`. Los textos de campañas usan `{es, en}` y se traducen aparte con `C2_HTR(id, lang, {'ruta|del|texto': '…'})` (ver `hist/korea_fr.js`); los `{placeholders}` deben coincidir en todos los idiomas.
 
 ### Balance
 `SAM`, `AIR`, `THREAT`, `SPAWN_WIN` y `makeLevel()` en `game.js`. En campañas históricas, el objetivo y la dificultad de cada misión están en `hist/<id>_m*.js` (`goal`, `lim`, oleadas).

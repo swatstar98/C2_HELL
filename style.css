@@ -433,3 +433,10 @@ html,body{font-size:calc(16px*var(--u))}
 .mbar .mt.store .ic{color:var(--amber)}
 .screen.menu::before{display:none}
 .mradar{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+
+/* ===== Zoom del mapa ===== */
+#zoomctl{position:absolute;right:8px;top:62px;z-index:3;display:flex;flex-direction:column;gap:6px}
+#zoomctl button{width:var(--tap,48px);height:var(--tap,48px);padding:0;background:rgba(10,17,24,.82);border:1px solid var(--line);color:var(--text);font:700 calc(22px*var(--u,1)) var(--mono);clip-path:polygon(var(--cut,7px) 0,100% 0,100% calc(100% - var(--cut,7px)),calc(100% - var(--cut,7px)) 100%,0 100%,0 var(--cut,7px))}
+#zoomctl button:active{background:#173247;border-color:var(--cyan)}
+#zoomctl button[disabled]{opacity:.35}
+#zoomctl #zlvl{height:30px;font-size:12px;letter-spacing:.04em;color:var(--cyan)}

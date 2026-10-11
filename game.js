@@ -205,7 +205,7 @@ function briefCounts(lv) {
 /* ============================ ESTADO ============================ */
 let G = null;
 const UI = { tab: 'def', mode: 'idle', spec: null, ghost: null, drag: null, ptr: null, hintShown: {} };
-const view = { w: 1, h: 1, dpr: 1, s: 1, ox: 0, oy: 0, R: 12 };
+const view = { w: 1, h: 1, dpr: 1, s: 1, ox: 0, oy: 0, R: 12, fit: 1, zoom: 1, zmax: 5, dirty: false };
 const cv = $('#c'); let ctx = cv.getContext('2d');
 const bg = document.createElement('canvas');
 
@@ -231,6 +231,7 @@ function buzz(ms) {   // en la app nativa se usa el plugin Haptics de Capacitor 
 }
 
 function newGame(n, cfg) {
+  if (view.zoom !== 1) resetZoom();
   cfg = cfg || null;
   if (cfg && cfg.mode === 'tut') { /* el tutorial es gratis y siempre accesible */ } else if (cfg && cfg.mode === 'hist') { if (histPaid(HIST[cfg.camp], cfg.m)) return showStore(() => showCamp(cfg.camp)); } else if (cfg ? !Store.modes() : !Store.theater(theaterOf(n))) return showStore(showMenu);
   const lv = cfg ? buildModeLevel(cfg) : makeLevel(n); n = lv.n; coachHide();
@@ -1389,19 +1390,45 @@ function commitGhost() {
   }
   return false;
 }
+const PT = new Map(); let pinch = null;
+function startPinch() {
+  const [a, b] = [...PT.values()], r = cv.getBoundingClientRect(), mx = (a.x + b.x) / 2 - r.left, my = (a.y + b.y) / 2 - r.top;
+  pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: view.zoom, wx: (mx - view.ox) / view.s, wy: (my - view.oy) / view.s };
+  UI.ptr = null; UI.ghost = null;
+}
+function movePinch() {
+  if (PT.size < 2) return; const [a, b] = [...PT.values()], r = cv.getBoundingClientRect(), mx = (a.x + b.x) / 2 - r.left, my = (a.y + b.y) / 2 - r.top;
+  view.zoom = clamp(pinch.z0 * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d0, 1, view.zmax); view.s = view.fit * view.zoom;
+  view.ox = mx - pinch.wx * view.s; view.oy = my - pinch.wy * view.s; clampPan(); view.dirty = true; zoomUI();   // pellizco + arrastre con dos dedos
+}
 function initPointer() {
   cv.addEventListener('contextmenu', e => e.preventDefault());
+  const lift = e => { PT.delete(e.pointerId); if (pinch && PT.size < 2) pinch = null; if (UI.pan && UI.pan.id === e.pointerId) UI.pan = null; };
+  cv.addEventListener('pointerup', lift); cv.addEventListener('pointercancel', lift);
+  cv.addEventListener('wheel', e => { if (!G) return; e.preventDefault(); const r = cv.getBoundingClientRect(); zoomAt(view.zoom * Math.exp(-e.deltaY * (e.ctrlKey ? .01 : .0016)), e.clientX - r.left, e.clientY - r.top); }, { passive: false });
+  const zc = (f) => () => zoomAt(view.zoom * f, view.w / 2, view.h / 2);
+  $('#zin').onclick = zc(1.5); $('#zout').onclick = zc(1 / 1.5); $('#zlvl').onclick = resetZoom; zoomUI();
   cv.addEventListener('pointerdown', e => {
     if (!G) return;
     SND.init();
-    UI.ptr = { id: e.pointerId, x: e.clientX, y: e.clientY, cx: e.clientX, cy: e.clientY, moved: false, type: e.pointerType };
+    PT.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (e.pointerType === 'mouse' && e.button !== 0) { UI.pan = { id: e.pointerId, x: e.clientX, y: e.clientY }; try { cv.setPointerCapture(e.pointerId); } catch (_) { /* ok */ } return; }
+    if (PT.size === 2) { startPinch(); return; }
+    if (PT.size > 2) return;
+    UI.ptr = { lx: e.clientX, ly: e.clientY,  id: e.pointerId, x: e.clientX, y: e.clientY, cx: e.clientX, cy: e.clientY, moved: false, type: e.pointerType };
     if (UI.mode !== 'place') { const [, , px, py] = toWorld(e.clientX, e.clientY), ch = hitChip(px, py); if (ch) UI.ptr.chip = ch; }
     try { cv.setPointerCapture(e.pointerId); } catch (_) { /* ok */ }
     if (UI.mode !== 'idle') setGhost(e.clientX, e.clientY, e.pointerType);
   });
   cv.addEventListener('pointermove', e => {
     if (!G) return;
-    if (UI.ptr && UI.ptr.id === e.pointerId) { UI.ptr.cx = e.clientX; UI.ptr.cy = e.clientY; if (Math.hypot(e.clientX - UI.ptr.x, e.clientY - UI.ptr.y) > 8) UI.ptr.moved = true; }
+    if (PT.has(e.pointerId)) PT.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch) { movePinch(); return; }
+    if (UI.pan && UI.pan.id === e.pointerId) { panBy(e.clientX - UI.pan.x, e.clientY - UI.pan.y); UI.pan.x = e.clientX; UI.pan.y = e.clientY; return; }
+    if (UI.ptr && UI.ptr.id === e.pointerId) {
+      UI.ptr.cx = e.clientX; UI.ptr.cy = e.clientY; if (Math.hypot(e.clientX - UI.ptr.x, e.clientY - UI.ptr.y) > 8) UI.ptr.moved = true;
+      if (UI.ptr.moved && UI.mode === 'idle' && !UI.ptr.chip && view.zoom > 1.001) { panBy(e.clientX - UI.ptr.lx, e.clientY - UI.ptr.ly); UI.ptr.lx = e.clientX; UI.ptr.ly = e.clientY; }   // un dedo arrastra el mapa ampliado
+    }
     if (UI.mode !== 'idle' && (e.pointerType === 'mouse' || UI.ptr)) setGhost(e.clientX, e.clientY, e.pointerType);
   });
   cv.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse' && !UI.ptr) UI.ghost = null; });
@@ -1439,6 +1466,9 @@ function initPointer() {
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key, ids = Object.keys(cardRefs);
     if ('qwertyui'.includes(k) && k.length === 1 && ids['qwertyui'.indexOf(k)]) { const id = ids['qwertyui'.indexOf(k)], sp = cardRefs[id].spec; if (UI.spec && UI.spec.id === id && UI.mode !== 'idle') cancelMode(); else if (canArm(sp)) armMode(sp); return; }
     if (k === 'Tab') { e.preventDefault(); UI.tab = ({ def: 'air', air: 'rad', rad: 'def' })[UI.tab]; cancelMode(); buildDock(); return; }
+    if (k === '+' || k === '=') { zoomAt(view.zoom * 1.4, view.w / 2, view.h / 2); return; }
+    if (k === '-') { zoomAt(view.zoom / 1.4, view.w / 2, view.h / 2); return; }
+    if (k === '0') { resetZoom(); return; }
     if (k === 'f') { restockAll(); return; }
     if (k === 'm') { showPause(); return; }
     if (e.code === 'Space') { e.preventDefault(); setSpeed(G.speed ? 0 : 1); }
@@ -1448,12 +1478,29 @@ function initPointer() {
 }
 
 /* ============================ RENDER ============================ */
+/* ---- Zoom y desplazamiento del mapa: view.fit = escala que encaja todo el mapa; view.zoom = 1…zmax. Los símbolos mantienen su tamaño en píxeles. ---- */
+function clampPan() {
+  const mw = WW * view.s, mh = WH * view.s;
+  view.ox = mw <= view.w ? (view.w - mw) / 2 : clamp(view.ox, view.w - mw, 0);
+  view.oy = mh <= view.h ? (view.h - mh) / 2 : clamp(view.oy, view.h - mh, 0);
+}
+function fitView() { view.fit = Math.min(view.w / WW, view.h / WH) * .995; view.zoom = clamp(view.zoom || 1, 1, view.zmax); view.s = view.fit * view.zoom; clampPan(); view.dirty = true; }
+function zoomAt(z, ax, ay) {   // (ax, ay) en píxeles del mapa: el punto del mundo bajo él se queda quieto
+  z = clamp(z, 1, view.zmax); const wx = (ax - view.ox) / view.s, wy = (ay - view.oy) / view.s;
+  view.zoom = z; view.s = view.fit * z; view.ox = ax - wx * view.s; view.oy = ay - wy * view.s; clampPan(); view.dirty = true; zoomUI();
+}
+function panBy(dx, dy) { view.ox += dx; view.oy += dy; clampPan(); view.dirty = true; }
+function resetZoom() { view.zoom = 1; fitView(); zoomUI(); }
+function zoomUI() {
+  const l = $('#zlvl'); if (!l) return; l.textContent = '×' + view.zoom.toFixed(1);
+  $('#zin').disabled = view.zoom >= view.zmax - .01; $('#zout').disabled = view.zoom <= 1.01;
+}
 function resize() {
   const wrap = $('#mapwrap'), w = wrap.clientWidth, h = wrap.clientHeight;
   if (!w || !h) return;
   view.dpr = Math.min(devicePixelRatio || 1, 2); view.w = w; view.h = h;
   cv.width = Math.round(w * view.dpr); cv.height = Math.round(h * view.dpr);
-  view.s = Math.min(w / WW, h / WH) * .995; view.ox = (w - WW * view.s) / 2; view.oy = (h - WH * view.s) / 2;
+  fitView();
   view.R = clamp(5.5 + Math.min(w, h) / 100, 8, 12) * SET.scale;
   if (window.__rot) window.__rot();
   renderBG();
@@ -1538,6 +1585,7 @@ function airChips() {
   for (const b of airbases()) {
     const list = G.air.filter(a => a.home === b && (a.state === 'hangar' || a.state === 'turn')); if (!list.length) continue;
     const bx = b.x * view.s + view.ox, by = b.y * view.s + view.oy, right = bx < view.w * .55, n = list.length;
+    if (bx < -30 || bx > view.w + 30 || by < -30 || by > view.h + 30) continue;   // base fuera de la vista ampliada: sin fichas
     const cols = n > 3 ? 2 : 1, rows = Math.ceil(n / cols);
     list.forEach((a, i) => {
       const c = i % cols, r = Math.floor(i / cols);
@@ -1776,6 +1824,7 @@ function drawGhost() {
   }
 }
 function draw() {
+  if (view.dirty) { view.dirty = false; renderBG(); }
   ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
   ctx.clearRect(0, 0, view.w, view.h);
   if (FXS.shake > 0) ctx.translate((Math.random() - .5) * FXS.shake * 7, (Math.random() - .5) * FXS.shake * 7);
