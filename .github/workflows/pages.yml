@@ -1,0 +1,25 @@
+# Publica SOLO la política de privacidad en GitHub Pages (el juego no se publica).
+# Cópialo sobre .github/workflows/pages.yml (las herramientas remotas no pueden escribir en esa carpeta).
+# URLs: https://swatstar98.github.io/C2_HELL/privacy.html y .../delete-data.html
+name: Política de privacidad (GitHub Pages)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [privacy.html, delete-data.html, .github/workflows/pages.yml]
+permissions: { contents: read, pages: write, id-token: write }
+concurrency: { group: pages, cancel-in-progress: true }
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: { name: github-pages, url: '${{ steps.d.outputs.page_url }}' }
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          mkdir site && cp privacy.html delete-data.html site/ && touch site/.nojekyll
+          echo '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=privacy.html"><a href="privacy.html">Privacy policy</a>' > site/index.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: site }
+      - id: d
+        uses: actions/deploy-pages@v4
