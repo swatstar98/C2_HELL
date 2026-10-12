@@ -1,4 +1,4 @@
-/* C2 HELL — intro de arranque (~5 s, saltable con un toque / tecla).
+/* C2 HELL — intro de arranque (~5 s, saltable con un toque / tecla), con sonido sintetizado (WebAudio, sin ficheros).
  * Secuencia: anillos de radar → barrido → contacto hostil → intercepción → logotipo → firma RotorLift Sims.
  * Se omite con ?nointro, en automatización (navigator.webdriver; fuerza con ?intro) y en enlaces ?level=N.
  * Respeta prefers-reduced-motion (fotograma final estático ~1,6 s). Sin dependencias; los textos van por I18N. */
@@ -72,10 +72,65 @@ ${brand}
   if (still) el.classList.add('rm');
   document.body.appendChild(el);
 
+  /* ---------- sonido: sintetizado y sincronizado con la animación; respeta Ajustes › Sonido ---------- */
+  let ac = null, master = null;
+  const T0 = performance.now(), elapsed = () => (performance.now() - T0) / 1000;
+  function soundOn() { try { const o = JSON.parse(localStorage.getItem('c2hell.save') || '{}'); return !(o.set && o.set.snd === false); } catch (e) { return true; } }
+  // reproduce f(t) en el instante t (s desde el inicio de la intro); si ya pasó, se omite
+  const at = (t, f) => { const d = t - elapsed(); if (d >= -0.05 && ac) f(ac.currentTime + Math.max(0, d)); };
+  function tone(t, f, len, type, vol, slide) {
+    at(t, T => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = type; o.frequency.setValueAtTime(f, T); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, f + slide), T + len);
+      g.gain.setValueAtTime(.0001, T); g.gain.linearRampToValueAtTime(vol, T + Math.min(.02, len / 4)); g.gain.exponentialRampToValueAtTime(.0001, T + len);
+      o.connect(g); g.connect(master); o.start(T); o.stop(T + len + .05);
+    });
+  }
+  function pad(t, f, len, vol) {   // acorde suave que entra despacio
+    at(t, T => {
+      const o = ac.createOscillator(), g = ac.createGain(), q = ac.createBiquadFilter();
+      o.type = 'triangle'; o.frequency.value = f; q.type = 'lowpass'; q.frequency.value = 1400;
+      g.gain.setValueAtTime(.0001, T); g.gain.linearRampToValueAtTime(vol, T + .25); g.gain.exponentialRampToValueAtTime(.0001, T + len);
+      o.connect(q); q.connect(g); g.connect(master); o.start(T); o.stop(T + len + .05);
+    });
+  }
+  function noise(t, len, vol, f0, f1, type) {   // ruido filtrado con barrido de frecuencia
+    at(t, T => {
+      const n = Math.floor(ac.sampleRate * len), b = ac.createBuffer(1, n, ac.sampleRate), c = b.getChannelData(0);
+      for (let i = 0; i < n; i++) c[i] = (Math.random() * 2 - 1) * (type === 'swell' ? Math.sin(Math.PI * i / n) : (1 - i / n));
+      const s = ac.createBufferSource(), g = ac.createGain(), q = ac.createBiquadFilter();
+      q.type = type === 'swell' ? 'bandpass' : 'lowpass'; q.Q.value = type === 'swell' ? 3 : .7;
+      q.frequency.setValueAtTime(f0, T); q.frequency.exponentialRampToValueAtTime(f1, T + len);
+      g.gain.value = vol; s.buffer = b; s.connect(q); q.connect(g); g.connect(master); s.start(T);
+    });
+  }
+  function schedule() {
+    tone(.05, 55, 1.6, 'sine', .07);                                  // zumbido de arranque del radar
+    [[.12, 880], [.27, 1108], [.42, 1318]].forEach(p => tone(p[0], p[1], .4, 'sine', .035));   // un «ping» por anillo
+    noise(.4, 1.5, .05, 300, 1800, 'swell');                           // barrido
+    tone(1.3, 740, .14, 'triangle', .05);                              // unidad aliada
+    tone(2.0, 1760, .07, 'square', .03); tone(2.13, 1760, .07, 'square', .03);   // contacto hostil
+    tone(2.35, 300, .32, 'sawtooth', .035, 1200); noise(2.35, .35, .05, 3000, 600);   // lanzamiento
+    noise(2.72, .5, .16, 2200, 120); tone(2.72, 95, .5, 'sine', .14, -60);           // impacto
+    for (let i = 0; i < 6; i++) tone(2.45 + i * .1, 1500, .035, 'square', .015);      // trazos del logotipo
+    [220, 261.6, 329.6].forEach(f => pad(3.35, f, 1.8, .05));          // acorde final (La menor)
+    tone(3.8, 1568, .6, 'sine', .03);                                  // firma
+  }
+  if (soundOn()) {
+    try {
+      ac = new (window.AudioContext || window.webkitAudioContext)();
+      master = ac.createGain(); master.gain.value = .9; master.connect(ac.destination);
+      if (ac.state === 'suspended') ac.resume().catch(() => { /* sin permiso de autoplay */ });
+      // si el navegador no deja arrancar el audio sin gesto, la intro va muda (no se encola para evitar desfases)
+      setTimeout(() => { if (ac && ac.state === 'running') schedule(); }, 120);
+    } catch (e) { ac = null; }
+  }
+
   let done = false;
   function finish() {
     if (done) return; done = true;
     el.classList.add('out');
+    if (ac) { try { master.gain.setTargetAtTime(0, ac.currentTime, .05); const c = ac; setTimeout(() => c.close().catch(() => { /* ya cerrado */ }), 600); } catch (e) { /* sin audio */ } ac = null; }
     el.addEventListener('animationend', e => { if (e.target === el) el.remove(); });
     setTimeout(() => el.remove(), 700);
     ['pointerdown', 'keydown'].forEach(ev => removeEventListener(ev, finish, true));
