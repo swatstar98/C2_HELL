@@ -23,7 +23,8 @@ También vale abrir `index.html` con doble clic; el service worker y el portapap
 | Parámetro | Efecto |
 |---|---|
 | `?unlock` | Todos los niveles y misiones desbloqueados (también salta el tutorial obligatorio) |
-| `?level=7` | Salta directamente al nivel 7 |
+| `?level=7` | Salta directamente al nivel 7 (sin intro) |
+| `?nointro` / `?intro` | Omite la intro de arranque / la fuerza (por defecto se omite en automatización: `navigator.webdriver`) |
 | `?lang=es\|en\|fr\|de\|pt` | Idioma (solo si no hay uno guardado en `localStorage c2hell.lang`; en pruebas usa un contexto limpio) |
 | Zoom del mapa | Pellizco (2 dedos, también desplaza), rueda del ratón, botones +/− (el del medio ajusta a pantalla), teclas `+` `−` `0`; con zoom, un dedo arrastra el mapa en reposo y el botón derecho/central del ratón desplaza siempre |
 | `?store=sim` | Prueba la tienda con compras simuladas |
@@ -48,6 +49,7 @@ También vale abrir `index.html` con doble clic; el service worker y el portapap
 index.html          Esqueleto del HUD (#top, #mapwrap, #cmd, #dock, #overlay) y carga de scripts
 style.css           Todo el estilo (incluye la fuente NTDS Icons en base64)
 game.js             Todo el juego (IIFE, ~2800 líneas) — ver mapa de secciones abajo
+intro.js           Intro de arranque (SVG + CSS, ~5 s, saltable; textos `intro.*` en lang/hist.js)
 i18n.js, lang/*.js  Motor y diccionarios (es, en, fr, de, pt); lang/hist.js = textos de campañas + loader C2_HTR
 maps*.js            Datos geográficos generados (Natural Earth): teatros modernos y mapas históricos
 hist/               Campañas históricas: <id>_core.js, _m1..m4.js, _units.js y traducciones _fr/_de/_pt.js
