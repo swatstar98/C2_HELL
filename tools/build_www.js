@@ -8,6 +8,7 @@ for (const f of FILES) cp(path.join(root, f), path.join(out, f));
 for (const f of fs.readdirSync(path.join(root, 'lang'))) cp(path.join(root, 'lang', f), path.join(out, 'lang', f));
 const copyDir = (a, b2) => { for (const f of fs.readdirSync(a)) { const s2 = path.join(a, f); if (fs.statSync(s2).isDirectory()) copyDir(s2, path.join(b2, f)); else cp(s2, path.join(b2, f)); } };
 copyDir(path.join(root, 'hist'), path.join(out, 'hist'));
+copyDir(path.join(root, 'audio'), path.join(out, 'audio'));
 for (const f of fs.readdirSync(path.join(root, 'assets/fonts'))) cp(path.join(root, 'assets/fonts', f), path.join(out, 'assets/fonts', f));
 for (const f of fs.readdirSync(path.join(root, 'icons'))) cp(path.join(root, 'icons', f), path.join(out, 'icons', f));
 // --store (o C2_STORE=1) activa la tienda (juego completo + packs) en la build nativa; sin ello la app sale con todo desbloqueado.

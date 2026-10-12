@@ -49,7 +49,8 @@ También vale abrir `index.html` con doble clic; el service worker y el portapap
 index.html          Esqueleto del HUD (#top, #mapwrap, #cmd, #dock, #overlay) y carga de scripts
 style.css           Todo el estilo (incluye la fuente NTDS Icons en base64)
 game.js             Todo el juego (IIFE, ~2800 líneas) — ver mapa de secciones abajo
-intro.js           Intro de arranque (SVG + CSS, ~5 s, saltable; textos `intro.*` en lang/hist.js)
+audio/mus/         Samples de instrumentos reales (CC0, VSCO 2 CE; ver audio/LICENSE-samples.txt). Los carga `SND.loadSamples()`; sin ellos suena el sintetizador
+intro.js           Intro de arranque (SVG + CSS + sonido WebAudio, ~5 s, saltable; textos `intro.*` en lang/hist.js)
 i18n.js, lang/*.js  Motor y diccionarios (es, en, fr, de, pt); lang/hist.js = textos de campañas + loader C2_HTR
 maps*.js            Datos geográficos generados (Natural Earth): teatros modernos y mapas históricos
 hist/               Campañas históricas: <id>_core.js, _m1..m4.js, _units.js y traducciones _fr/_de/_pt.js

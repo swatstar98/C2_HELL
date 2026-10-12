@@ -113,3 +113,8 @@ I18N.add('en', {"intro.tag": "AIR DEFENSE COMMAND", "intro.skip": "TAP TO SKIP"}
 I18N.add('fr', {"intro.tag": "COMMANDEMENT DE DÉFENSE AÉRIENNE", "intro.skip": "TOUCHEZ POUR PASSER"});
 I18N.add('de', {"intro.tag": "LUFTVERTEIDIGUNGSKOMMANDO", "intro.skip": "ANTIPPEN ZUM ÜBERSPRINGEN"});
 I18N.add('pt', {"intro.tag": "COMANDO DE DEFESA AÉREA", "intro.skip": "TOQUE PARA PULAR"});
+I18N.add('es', {"cr.music": "MÚSICA", "cr.musicT": "Instrumentos orquestales grabados (trompa, trompeta, cuerdas, flauta, percusión). Tema original de C2 HELL."});
+I18N.add('en', {"cr.music": "MUSIC", "cr.musicT": "Recorded orchestral instruments (horn, trumpet, strings, flute, percussion). Original C2 HELL theme."});
+I18N.add('fr', {"cr.music": "MUSIQUE", "cr.musicT": "Instruments d’orchestre enregistrés (cor, trompette, cordes, flûte, percussions). Thème original de C2 HELL."});
+I18N.add('de', {"cr.music": "MUSIK", "cr.musicT": "Aufgenommene Orchesterinstrumente (Horn, Trompete, Streicher, Flöte, Schlagwerk). Originalthema von C2 HELL."});
+I18N.add('pt', {"cr.music": "MÚSICA", "cr.musicT": "Instrumentos orquestrais gravados (trompa, trompete, cordas, flauta, percussão). Tema original de C2 HELL."});

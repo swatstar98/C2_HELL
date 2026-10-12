@@ -7,7 +7,5 @@ server/data/
 *.jks
 .env
 dist/
-
-# Posts generados (se regeneran con tools/social_posts.js)
-social/**/*.png
-assets/logo/*.png
+music_out/
+music_out/

@@ -1,0 +1,3 @@
+audio/mus/*.mp3 — recortes (mono, 32 kHz, normalizados) de VSCO 2 Community Edition
+https://github.com/sgossner/VSCO-2-CE  ·  Versilian Studios  ·  Licencia CC0 1.0 (dominio público, sin atribución obligatoria).
+Instrumentos: trompa, trompeta, sección de violines, violas y chelos, contrabajo, flauta, timbales, caja marcial, bombo y plato.

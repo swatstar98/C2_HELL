@@ -348,7 +348,7 @@ const SND = {
         this.unmute = a; a.play().catch(() => { /* se reintentará con otro gesto */ });
       } catch (e) { /* sin audio HTML5 */ }
     } else if (this.unmute.paused) this.unmute.play().catch(() => { /* idem */ });
-    this.musicStart();
+    this.musicStart(); this.loadSamples();
   },
   gate(key) { const n = performance.now(); if (n - (this.last[key] || 0) < 70) return false; this.last[key] = n; return true; },
   tone(f, d, type, v, slide, key) {
@@ -384,9 +384,11 @@ const SND = {
   musicSched() {
     const m = this.mus, ac = this.ac; if (!m || !ac) return;
     if (!this.on || !this.musicOn || ac.state !== 'running') { m.next = ac.currentTime + .2; return; }
-    const bpm = [72, 84, 96, 112][m.lvl], d = 60 / bpm / 4;
+    if (this.smp && !this.smp.ready && !this.smp.failed) { m.next = ac.currentTime + .2; return; }   // esperando a los samples (≈1 s)
+    const bpm = [76, 88, 100, 116][m.lvl], d = 60 / bpm / 4;
     if (m.next < ac.currentTime - .4) m.next = ac.currentTime + .1;   // tras un bloqueo del hilo no se recuperan los pasos perdidos (evita una avalancha de osciladores)
-    while (m.next < ac.currentTime + .3) { this.musicStep(m.step++, m.next, d, m.lvl); m.next += d; }
+    const real = this.smp && this.smp.ready;
+    while (m.next < ac.currentTime + .3) { real ? this.musicStepS(m.step++, m.next, d, m.lvl) : this.musicStep(m.step++, m.next, d, m.lvl); m.next += d; }
   },
   mtone(f, t, len, type, vol, atk, lp) {
     const ac = this.ac, o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = f;
@@ -394,15 +396,138 @@ const SND = {
     let n = o; if (lp) { const q = ac.createBiquadFilter(); q.type = 'lowpass'; q.frequency.value = lp; o.connect(q); n = q; }
     n.connect(g); g.connect(this.mbus); o.start(t); o.stop(t + len + .05);
   },
+  /* Tema propio de C2 HELL (re menor, 8 compases: Dm Dm Bb C Dm Dm Bb A). Gancho tipo toque de corneta: la4→re5 + descenso.
+     Niveles de intensidad: 0 planificación (pad + flauta), 1 ops en calma (+corno, bajo, timbal), 2 amenazas (+caja, bombo, charles), 3 crítico (+cuerdas, redoble) */
+  THEME: {
+    root: [50, 50, 46, 48, 50, 50, 46, 45],
+    chord: [[62, 65, 69], [62, 65, 69], [58, 62, 65], [60, 64, 67], [62, 65, 69], [62, 65, 69], [58, 62, 65], [57, 61, 64]],
+    mel: [
+      [[0, 69, 2], [2, 74, 6], [8, 72, 2], [10, 70, 2], [12, 69, 4]],
+      [[0, 65, 4], [4, 69, 4], [8, 74, 8]],
+      [[0, 74, 4], [4, 72, 2], [6, 70, 2], [8, 72, 4], [12, 70, 2], [14, 67, 2]],
+      [[0, 67, 4], [4, 72, 4], [8, 76, 4], [12, 74, 2], [14, 72, 2]],
+      [[0, 69, 2], [2, 74, 6], [8, 72, 2], [10, 70, 2], [12, 69, 4]],
+      [[0, 65, 4], [4, 69, 4], [8, 74, 4], [12, 77, 4]],
+      [[0, 77, 4], [4, 74, 2], [6, 70, 2], [8, 74, 4], [12, 72, 4]],
+      [[0, 73, 4], [4, 76, 2], [6, 73, 2], [8, 69, 8]]
+    ]
+  },
+  mkick(t, vol) {
+    const ac = this.ac, o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + .13);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + .17); o.connect(g); g.connect(this.mbus); o.start(t); o.stop(t + .2);
+  },
+  msnare(t, vol) {   // caja militar: ruido filtrado + cuerpo corto
+    const ac = this.ac, n = Math.floor(ac.sampleRate * .14), buf = ac.createBuffer(1, n, ac.sampleRate), ch = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 1.6);
+    const sr = ac.createBufferSource(), g = ac.createGain(), q = ac.createBiquadFilter(); q.type = 'bandpass'; q.frequency.value = 2200; q.Q.value = .8;
+    g.gain.value = vol; sr.buffer = buf; sr.connect(q); q.connect(g); g.connect(this.mbus); sr.start(t);
+    const o = ac.createOscillator(), og = ac.createGain(); o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(140, t + .08);
+    og.gain.setValueAtTime(vol * .5, t); og.gain.exponentialRampToValueAtTime(.0001, t + .09); o.connect(og); og.connect(this.mbus); o.start(t); o.stop(t + .1);
+  },
+  mtimp(t, f, vol) {   // timbal
+    const ac = this.ac, o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(f * 1.25, t); o.frequency.exponentialRampToValueAtTime(f, t + .12);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + .9); o.connect(g); g.connect(this.mbus); o.start(t); o.stop(t + 1);
+  },
+  mbrass(f, t, len, vol) {   // corno sintético: dos dientes de sierra desafinados con filtro
+    this.mtone(f, t, len, 'sawtooth', vol, .035, 1700); this.mtone(f * 1.006, t, len, 'sawtooth', vol * .8, .045, 1500);
+  },
   musicStep(i, t, d, lvl) {
-    const bar = Math.floor(i / 16), s = i % 16, ch = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]][Math.floor(bar / 2) % 4], f = n => 440 * Math.pow(2, (n - 69) / 12);
-    if (s === 0 && bar % 2 === 0) { for (const n of ch) { this.mtone(f(n), t, d * 32, 'triangle', .05, .7, 900); this.mtone(f(n) * 1.004, t, d * 32, 'sawtooth', .012, .9, 700); } }
-    if (lvl === 0 && s === 8 && bar % 2 === 1) this.mtone(f(ch[2] + 24), t, d * 8, 'sine', .03, .01, 0);
-    if (lvl >= 1 && s % 4 === 0) this.mtone(f(ch[0] - 24), t, d * 3.2, 'triangle', .13, .02, 400);
-    if (lvl >= 2 && s % 2 === 0) this.mtone(f(ch[(s / 2) % 3] + 12), t, d * 1.6, 'square', .02, .005, 1800);
-    if (lvl >= 2 && s % 4 === 2) this.mnoise(t, .03, .02);
-    if (lvl >= 3 && s % 4 === 0) { const ac = this.ac, o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(40, t + .14); g.gain.setValueAtTime(.2, t); g.gain.exponentialRampToValueAtTime(.0001, t + .16); o.connect(g); g.connect(this.mbus); o.start(t); o.stop(t + .2); }
-    if (lvl >= 3 && s % 2 === 1) this.mnoise(t, .02, .012);
+    const TH = this.THEME, bar = Math.floor(i / 16) % 8, pass = Math.floor(i / 128), s = i % 16, f = n => 440 * Math.pow(2, (n - 69) / 12);
+    const ch = TH.chord[bar], root = TH.root[bar];
+    // pad armónico: un acorde por compás
+    if (s === 0) { for (const n of ch) { this.mtone(f(n), t, d * 16, 'triangle', lvl === 0 ? .05 : .04, .5, 900); this.mtone(f(n) * 1.004, t, d * 16, 'sawtooth', .01, .7, 700); } }
+    // melodía: flauta suave en 0, corno desde 1; octava alta en las vueltas impares con amenazas
+    for (const m of TH.mel[bar]) if (m[0] === s) {
+      const len = d * m[2] * .95;
+      if (lvl === 0) { this.mtone(f(m[1]), t, len, 'triangle', .09, .04, 2600); this.mtone(f(m[1] + 12), t, len, 'sine', .02, .05, 0); }
+      else { this.mbrass(f(m[1]), t, len, lvl >= 2 ? .048 : .04); if (lvl >= 2 && pass % 2 === 1) this.mtone(f(m[1] + 12), t, len, 'square', .012, .03, 2500); }
+    }
+    if (lvl === 0) { if (s === 8 && bar % 2 === 1) this.mtone(f(root + 24), t, d * 8, 'sine', .03, .01, 0); return; }
+    // bajo
+    if (lvl === 1 && (s === 0 || s === 8)) this.mtone(f(root), t, d * 6, 'triangle', .13, .02, 420);
+    if (lvl >= 2 && s % 2 === 0) this.mtone(f(root + (s % 8 === 6 ? 7 : 0)), t, d * 1.8, 'triangle', lvl === 3 && s % 4 === 0 ? .16 : .12, .015, 420);
+    // percusión
+    if (s === 0 && bar % 2 === 0) this.mtimp(t, 70, .22);
+    if (lvl === 1 && (s === 0 || s === 8)) this.mkick(t, .12);
+    if (lvl >= 2 && (s === 0 || s === 8 || s === 10 || (lvl >= 3 && (s === 3 || s === 6 || s === 14)))) this.mkick(t, lvl >= 3 ? .2 : .16);
+    if (s === 4 || s === 12) this.msnare(t, lvl >= 2 ? .13 : .07);
+    if (lvl >= 2 && s === 15) this.msnare(t, .05);
+    if (lvl >= 3 && bar % 4 === 3 && s >= 12) this.msnare(t, .05 + (s - 12) * .02);   // redoble de cierre de frase
+    if (lvl >= 2 && s % 2 === 1) this.mnoise(t, .03, lvl >= 3 ? .02 : .014);
+    if (lvl >= 2 && s === 0 && bar === 0) this.mnoise(t, .5, .03);   // platillo al inicio de la vuelta
+    // cuerdas en ostinato (nivel crítico)
+    if (lvl >= 3 && s % 2 === 0) this.mtone(f(ch[(s / 2) % 3] - 12), t, d * 1.7, 'sawtooth', .018, .01, 1500);
+  },
+  /* ---- Instrumentos reales: samples CC0 de VSCO 2 Community Edition (audio/mus/*.mp3, mono 32 kHz). Cada nota usa la muestra más cercana,
+     afinada con playbackRate (±3-5 semitonos), con reverb de sala y compresor en el bus de música. Si no cargan, suena el sintetizador de arriba. ---- */
+  SMP_MAP: { horn: [50, 53, 57, 60], tpt: [67, 74, 81, 84], vln: [69, 76, 83], vla: [62, 69], vc: [50, 60, 67], cb: [45, 52], spc: [50, 57, 74], fl: [76, 81, 84], tim: [30, 35, 37, 40] },
+  SMP_ONE: ['sn_p', 'sn_mp', 'sn_f', 'sn_rim', 'bd_mp', 'bd_ff', 'cym'],
+  smp: null, rev: null,
+  loadSamples() {
+    if (this.smp || !this.ac) return;
+    const S = this.smp = { buf: {}, ready: false, failed: false }, ac = this.ac, names = [];
+    if (location.protocol === 'file:') { S.failed = true; return; }   // fetch() no funciona desde file://: se usa el sintetizador
+    for (const k in this.SMP_MAP) this.SMP_MAP[k].forEach(m => names.push(k + '_' + m));
+    this.SMP_ONE.forEach(n => names.push(n));
+    const dec = ab => new Promise((ok, ko) => { const p = ac.decodeAudioData(ab, ok, ko); if (p && p.catch) p.catch(ko); });
+    Promise.all(names.map(n => fetch('audio/mus/' + n + '.mp3').then(r => { if (!r.ok) throw new Error(n); return r.arrayBuffer(); }).then(dec).then(b => { S.buf[n] = b; })))
+      .then(() => { this.setupRev(); S.ready = true; })
+      .catch(() => { S.failed = true; });   // sin samples → sintetizador
+  },
+  setupRev() {
+    const ac = this.ac; if (this.rev || !this.mbus) return;
+    const len = Math.floor(ac.sampleRate * 2.2), ir = ac.createBuffer(2, len, ac.sampleRate);
+    for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+    const cv = ac.createConvolver(), w = ac.createGain(), comp = ac.createDynamicsCompressor();
+    cv.buffer = ir; w.gain.value = .3; comp.threshold.value = -16; comp.ratio.value = 4; comp.attack.value = .01; comp.release.value = .25;
+    this.mbus.gain.value = .16;   // los samples vienen normalizados: se baja el bus para que la música quede por debajo de los efectos
+    try { this.mbus.disconnect(); } catch (e) { /* ya desconectado */ }
+    this.mbus.connect(comp); this.mbus.connect(cv); cv.connect(w); w.connect(comp); comp.connect(ac.destination); this.rev = cv;
+  },
+  sv(inst, midi, t, len, vol, atk, rel) {   // nota con sample: sostenida hasta t+len y luego relajación
+    const S = this.smp; if (!S || !S.ready) return;
+    const set = this.SMP_MAP[inst]; let best = set[0]; for (const m of set) if (Math.abs(m - midi) < Math.abs(best - midi)) best = m;
+    const buf = S.buf[inst + '_' + best]; if (!buf) return;
+    const ac = this.ac, src = ac.createBufferSource(), g = ac.createGain(), rate = Math.pow(2, (midi - best) / 12);
+    src.buffer = buf; src.playbackRate.value = rate;
+    len = Math.max(.05, Math.min(len, buf.duration / rate - rel - .08));
+    g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(vol, t + atk); g.gain.setValueAtTime(vol, t + Math.max(atk, len)); g.gain.exponentialRampToValueAtTime(.0001, t + len + rel);
+    src.connect(g); g.connect(this.mbus); src.start(t); src.stop(t + len + rel + .05);
+  },
+  sp(name, t, vol) {   // golpe de percusión (one-shot)
+    const S = this.smp, b = S && S.buf[name]; if (!b) return;
+    const ac = this.ac, src = ac.createBufferSource(), g = ac.createGain(); src.buffer = b; g.gain.value = vol; src.connect(g); g.connect(this.mbus); src.start(t);
+  },
+  musicStepS(i, t, d, lvl) {   // mismo tema y niveles que musicStep, con instrumentos reales
+    const TH = this.THEME, bar = Math.floor(i / 16) % 8, pass = Math.floor(i / 128), s = i % 16, bl = d * 16, ch = TH.chord[bar], root = TH.root[bar];
+    // cuerdas: un acorde por compás (violas ≥ do4, chelos por debajo) y contrabajo en la fundamental
+    if (s === 0) {
+      for (const n of ch) this.sv(n >= 61 ? 'vla' : 'vc', n, t, bl * .96, lvl === 0 ? .5 : .4, .5, .6);
+      if (lvl >= 1) this.sv('cb', root, t, bl * .96, .5, .3, .5);
+    }
+    // melodía: flauta en planificación; trompeta + trompa (octava grave) en operación; violines una octava arriba con amenazas
+    for (const m of TH.mel[bar]) if (m[0] === s) {
+      const len = d * m[2] * .97;
+      if (lvl === 0) this.sv('fl', m[1] + 12, t, len, .5, .07, .3);
+      else {
+        this.sv('tpt', m[1], t, len, lvl >= 2 ? .62 : .5, .03, .14);
+        this.sv('horn', m[1] - 12, t, len, .55, .05, .2);
+        if (lvl >= 2) this.sv('vln', m[1] + 12, t, len, .3, .08, .25);
+      }
+    }
+    if (lvl === 0) return;
+    // bajo en staccato (spiccato de chelos): corcheas desde nivel 2; semicorcheas alternando con notas del acorde en nivel 3
+    if (lvl >= 2 && s % 2 === 0) this.sv('spc', root + (s % 8 === 6 ? 7 : 0), t, .1, s % 4 === 0 ? .55 : .42, .004, .08);
+    if (lvl >= 3 && s % 2 === 1) this.sv('spc', ch[((s - 1) / 2) % 3] - 12, t, .08, .28, .004, .07);
+    // percusión
+    if (s === 0 && bar % 2 === 0) this.sv('tim', root - 12, t, 2.2, lvl >= 2 ? .85 : .6, .002, .7);
+    if (lvl >= 3 && s % 4 === 0 && s > 0) this.sv('tim', root - 12, t, .4, .45, .002, .3);
+    if (lvl >= 2 && (s === 0 || s === 8 || (lvl >= 3 && (s === 6 || s === 10)))) this.sp(s === 0 && bar % 2 === 0 ? 'bd_ff' : 'bd_mp', t, .5);
+    if (s === 4 || s === 12) this.sp(lvl >= 3 ? 'sn_f' : lvl === 2 ? 'sn_mp' : 'sn_p', t, lvl >= 2 ? .85 : .6);
+    if (lvl >= 2 && s === 15) this.sp('sn_p', t, .4);
+    if (lvl >= 3 && s % 2 === 1 && s !== 15) this.sp('sn_p', t, .22);
+    if (lvl >= 3 && bar % 4 === 3 && s >= 12) this.sp(s === 15 ? 'sn_rim' : 'sn_mp', t, .4 + (s - 12) * .15);   // redoble de cierre de frase
+    if (lvl >= 2 && s === 0 && bar === 0) this.sp('cym', t, .45);
   },
   mnoise(t, len, vol) {
     const ac = this.ac, n = Math.floor(ac.sampleRate * len), buf = ac.createBuffer(1, n, ac.sampleRate), ch = buf.getChannelData(0);
@@ -2660,6 +2785,7 @@ function showCredits(back) {
     sec(tr('cr.sym'), 'NTDS Icons — Peter Ellis Jones<br><span class="dim">github.com/peterellisjones/ntds-icons · SIL OFL 1.1 / MIT</span>') +
     sec(tr('cr.data'), 'Natural Earth (' + tr('cr.pd') + ') · world-atlas<br><span class="dim">' + tr('cr.dataT') + '</span>') +
     sec(tr('cr.hist'), tr('cr.histT')) +
+    sec(tr('cr.music'), 'VSCO 2 Community Edition · Versilian Studios · CC0<br><span class="dim">' + tr('cr.musicT') + '</span>') +
     sec(tr('cr.tech'), 'Capacitor · Web Audio · Canvas 2D<br><span class="dim">' + tr('cr.techT') + '</span>') +
     sec(tr('cr.contact'), '<a href="mailto:' + (cfg.reportEmail || 'rotorliftsim@gmail.com') + '" style="color:var(--cyan)">' + (cfg.reportEmail || 'rotorliftsim@gmail.com') + '</a>') +
     '<p class="sub">' + tr('cr.thanks') + '</p><button class="big" data-a="back">' + tr('back.menu') + '</button>');
