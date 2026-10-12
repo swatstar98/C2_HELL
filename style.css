@@ -446,3 +446,4 @@ html,body{font-size:calc(16px*var(--u))}
 #rtxt:focus{outline:none;border-color:var(--cyan)}
 #rinfo{white-space:pre-wrap;word-break:break-word;font:11.5px/1.35 var(--mono);color:var(--dim);margin:6px 0 0;-webkit-user-select:text;user-select:text}
 .tips summary{cursor:pointer;font:600 13px var(--mono);letter-spacing:.06em;color:var(--amber)}
+.redeem{display:flex;gap:8px;align-items:stretch;margin-top:8px}.redeem input{flex:1;min-width:0;background:var(--panel);color:inherit;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:600 14px var(--mono);letter-spacing:.08em;text-transform:uppercase}.redeem .big{flex:0 0 auto;margin:0}

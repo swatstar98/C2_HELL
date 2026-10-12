@@ -2070,6 +2070,7 @@ function unlocked(n) {
 // Estados: 'off' (config.store.enabled=false: todo desbloqueado, p. ej. la web), 'live' (hay window.C2_BILLING), 'sim' (compra simulada, SOLO pruebas:
 // ?store=sim o config.store.sim) y 'nobilling' (tienda activa pero sin pasarela: no se puede comprar; falla cerrado).
 // Contrato de window.C2_BILLING: { purchase(id)->Promise<bool>, restore()->Promise<string[]>, price(id)->string|undefined }.
+const REDEEM_HASH = '4fc0f6f99cf181b53ed013f77ac270545c6935d828d028e12bb05f635832f2e0';   // SHA-256('c2hell:' + código de revisor); el código en claro NO está en el repo (store/REVIEWER_CODE.txt, ignorado por git)
 const FULL_ID = 'c2hell_full', packId = k => 'c2hell_pack_' + THEATERS[k].id;
 const Store = {
   cfg() { return (window.C2_CONFIG || {}).store || {}; },
@@ -2098,6 +2099,18 @@ const Store = {
     if (m === 'sim') { this.grant(id); return Promise.resolve(true); }
     if (m !== 'live') return Promise.reject(new Error('nobilling'));
     return Promise.resolve(window.C2_BILLING.purchase(id)).then(ok => { if (ok) this.grant(id); return !!ok; });
+  },
+  // Código de revisor (Google Play pide acceso completo a un revisor que no puede comprar). Solo se guarda el SHA-256 del código; desbloquea en LOCAL
+  // el juego completo y todas las campañas históricas. Sin conexión ni servidor. Devuelve Promise<bool>.
+  redeem(code) {
+    const c = String(code || '').trim().toUpperCase().replace(/\s+/g, '');
+    if (!c || !(window.crypto && crypto.subtle && window.TextEncoder)) return Promise.resolve(false);
+    return crypto.subtle.digest('SHA-256', new TextEncoder().encode('c2hell:' + c)).then(buf => {
+      const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+      if (hex !== REDEEM_HASH) return false;
+      this.grant(FULL_ID); for (const cid in HIST) this.grant('c2hell_camp_' + cid);
+      return true;
+    }, () => false);
   },
   restore() {
     if (this.mode() !== 'live') return Promise.resolve(this.mode() === 'sim' ? -1 : 0);
@@ -2382,7 +2395,7 @@ function showStore(back) {
     row(FULL_ID, tr('st.full.n'), tr('st.full.d'), Store.full());
   for (let k = BASE_T; k < THEATERS.length; k++) h += row(packId(k), tr('th.' + THEATERS[k].id + '.name'), tr('st.pack.d', { t: tr('th.' + THEATERS[k].id + '.sub') }), Store.full() || !!ent.packs[THEATERS[k].id]);
   for (const cid in HIST) h += row('c2hell_camp_' + cid, '🎖 ' + ht(HIST[cid].name) + ' · ' + HIST[cid].years, tr('st.camp.d', { n: HIST[cid].missions.length, f: HIST[cid].free }), Store.camp(cid));
-  h += '<p class="sub" id="st-msg"></p><button class="big" data-a="restore">' + tr('st.restore') + '</button><button class="big" data-a="back">' + tr('back') + '</button>';
+  h += '<p class="sub" id="st-msg"></p><button class="big" data-a="restore">' + tr('st.restore') + '</button><div class="redeem"><input id="st-code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="32" placeholder="' + tr('st.code.ph') + '"><button class="big" data-a="redeem">' + tr('st.code.btn') + '</button></div><button class="big" data-a="back">' + tr('back') + '</button>';
   const o = showOverlay(h), msg = (t, bad) => { const e = $('#st-msg', o); e.textContent = t; e.style.color = bad ? 'var(--red)' : 'var(--green)'; };
   $$('[data-id]', o).forEach(b => b.onclick = () => {
     b.disabled = true;
@@ -2390,6 +2403,7 @@ function showStore(back) {
       .catch(e => { b.disabled = false; msg(e && e.message === 'nobilling' ? tr('st.noBilling') : tr('st.err'), true); });
   });
   $('[data-a=restore]', o).onclick = () => Store.restore().then(n => { if (n > 0) { showStore(back); setTimeout(() => { const e = $('#st-msg'); if (e) { e.textContent = tr('st.restoreOk'); e.style.color = 'var(--green)'; } }, 0); } else msg(n < 0 ? tr('st.sim') : tr('st.restoreNone'), n === 0); }).catch(() => msg(tr('st.err'), true));
+  $('[data-a=redeem]', o).onclick = () => Store.redeem($('#st-code', o).value).then(ok => { if (ok) { showStore(back); setTimeout(() => { const e = $('#st-msg'); if (e) { e.textContent = tr('st.code.ok'); e.style.color = 'var(--green)'; } }, 0); } else msg(tr('st.code.bad'), true); });
   $('[data-a=back]', o).onclick = back || showMenu;
 }
 /* ============================ CAMPAÑAS HISTÓRICAS ============================

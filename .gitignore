@@ -12,3 +12,5 @@ social/**/*.png
 assets/logo/*.png
 .wrangler/
 keystore.properties
+
+store/REVIEWER_CODE.txt

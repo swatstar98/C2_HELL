@@ -92,6 +92,27 @@ test('tienda: apagada (todo abierto), simulada (bloqueos y compras) y real con f
   assert.ok(!(await pg.evaluate(() => __C2.Store.modes())), 'sin facturación no se desbloquea nada'); await pg.evaluate(() => __C2.showStore()); noErrs(pg); await pg.context().close();
 });
 
+
+test('tienda: código de revisor (solo hash en el código; el real está en store/REVIEWER_CODE.txt, ignorado por git)', async () => {
+  const fs = require('fs'), path = require('path'), f = path.join(__dirname, '..', 'store', 'REVIEWER_CODE.txt');
+  const pg = await page('store=sim&lang=en&nointro');
+  assert.ok(!(await pg.evaluate(() => __C2.Store.modes())));
+  assert.equal(await pg.evaluate(() => __C2.Store.redeem('C2R-AAAA-BBBB-CCCC-DDDD')), false, 'código erróneo no concede');
+  assert.equal(await pg.evaluate(() => __C2.Store.redeem('')), false);
+  assert.ok(!(await pg.evaluate(() => __C2.Store.modes())), 'tras un código erróneo sigue bloqueado');
+  assert.ok(!/C2R-/.test(fs.readFileSync(path.join(__dirname, '..', 'game.js'), 'utf8')), 'el código en claro no está en game.js');
+  await pg.evaluate(() => __C2.showStore()); assert.ok(await pg.locator('#st-code').count(), 'la tienda muestra el campo de código');
+  if (fs.existsSync(f)) {
+    const code = fs.readFileSync(f, 'utf8').trim();
+    await pg.fill('#st-code', code.toLowerCase() + ' '); await pg.click('[data-a=redeem]');
+    await pg.waitForFunction(() => __C2.Store.modes());
+    assert.ok(await pg.evaluate(() => __C2.Store.modes() && __C2.Store.theater(6) && Object.keys(__C2.HIST).every(c => __C2.Store.camp(c))), 'el código correcto desbloquea juego completo y campañas');
+    await pg.reload(); await pg.waitForFunction(() => window.__C2);
+    assert.ok(await pg.evaluate(() => __C2.Store.modes()), 'persiste tras recargar');
+  }
+  noErrs(pg); await pg.context().close();
+});
+
 // ---- guardado ----
 const seed = (obj, raw) => ({ init: `try{localStorage.setItem('c2hell.save', ${JSON.stringify(raw !== undefined ? raw : JSON.stringify(obj))})}catch(e){}` });
 test('guardado: JSON corrupto no rompe el juego y se aparta en un backup', async () => {
