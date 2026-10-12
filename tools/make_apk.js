@@ -35,7 +35,8 @@ run('npm', ['run', release ? 'sync:store' : 'sync']);
 
 // 3) compilar
 const gw = path.join(root, 'android', win ? 'gradlew.bat' : 'gradlew'); if (!win) try { fs.chmodSync(gw, 0o755); } catch (e) { /* ya ejecutable */ }
-run(gw, [release ? 'bundleRelease' : 'assembleDebug'], { cwd: path.join(root, 'android') });
+let signArgs = []; if (release) { try { const sg = require('./signing').load(root); signArgs = sg.args; console.log('Firmando con ' + sg.file); } catch (e) { die(e.message); } }
+run(gw, [release ? 'bundleRelease' : 'assembleDebug'].concat(signArgs), { cwd: path.join(root, 'android') });
 
 // 4) recoger el resultado
 const outDir = path.join(root, 'dist'); fs.mkdirSync(outDir, { recursive: true });
@@ -43,4 +44,5 @@ const src = release ? path.join(root, 'android/app/build/outputs/bundle/release/
 if (!fs.existsSync(src)) die('Compiló, pero no encuentro el resultado en ' + src);
 const dst = path.join(outDir, release ? 'C2HELL-release.aab' : 'C2HELL-debug.apk'); fs.copyFileSync(src, dst);
 console.log('\n✔ Listo: ' + dst + ' (' + (fs.statSync(dst).size / 1048576).toFixed(1) + ' MB)');
+if (release) { const v = cp.spawnSync('jarsigner', ['-verify', dst], { encoding: 'utf8', shell: win }); console.log(/jar verified/i.test((v.stdout || '') + (v.stderr || '')) ? '  Firma verificada (jarsigner).' : '  (No pude verificar la firma con jarsigner; Play Console la comprobará al subirlo.)'); }
 if (!release) console.log('  Instálalo: copia el APK al móvil y ábrelo (permite «instalar apps de origen desconocido»), o con el móvil por USB: adb install -r "' + dst + '"');

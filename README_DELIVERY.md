@@ -16,7 +16,7 @@ npm ci
 npm run apk        # → dist/C2HELL-debug.apk
 ```
 `tools/make_apk.js` comprueba versiones y SDK con mensajes claros, genera `android/` si no existe (vertical, vibración, iconos), sincroniza la web y ejecuta Gradle. El APK sale **firmado con la clave de depuración**, instalable directamente (copia el archivo al móvil y permite «orígenes desconocidos», o `adb install -r dist/C2HELL-debug.apk`). Sale con **todo desbloqueado** (tienda desactivada) para poder probar.
-`npm run aab` genera el **AAB de Play Store** con la tienda activada (hace falta tu keystore: ver más abajo).
+`npm run aab` genera el **AAB de Play Store** con la tienda activada y **firmado** con tu clave de subida (ver «Firmar el AAB» más abajo).
 Alternativa sin instalar nada: sube el repo a GitHub y lanza el workflow *Android* (Actions → Run workflow); el APK queda como artefacto.
 
 ## 2. Android (APK / AAB)
@@ -28,7 +28,7 @@ npm run android:apk            # APK de depuración → android/app/build/output
 npm run android                # o abre el proyecto en Android Studio
 ```
 - **Instalar el APK**: copia `app-debug.apk` al móvil y ábrelo (permite «orígenes desconocidos»), o `adb install app-debug.apk`.
-- **Google Play**: genera un keystore (`keytool -genkey -v -keystore release.jks -alias c2hell -keyalg RSA -keysize 2048 -validity 10000`), guárdalo fuera del repo y compila `npm run android:aab` firmando desde Android Studio (*Build → Generate Signed Bundle*). El workflow **Android** lo hace solo si defines los secretos `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
+- **Google Play**: ver «Firmar el AAB». El workflow **Android** firma solo si defines los secretos `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
 - Ficha de Play: categoría Juegos → Estrategia; permisos usados: solo VIBRATE (y INTERNET, que Capacitor declara, solo se usa si activas las funciones online). Necesitas icono 512, gráfico destacado 1024×500 y capturas verticales.
 
 ## 3. iOS (IPA / TestFlight)
@@ -103,3 +103,25 @@ server/server.js                                                        ← serv
 - El desbloqueo se guarda en `localStorage` (`save.iap`) y se comprueba en el cliente: un jugador con el móvil rooteado podría falsificarlo. Es un riesgo aceptable para un pago de pocos euros; la solución sería validar recibos en un servidor.
 - `iap` no entra en el código de copia de seguridad ni en la nube, a propósito: si no, bastaría compartir un código para regalar el juego. Al reinstalar se recupera con **Restaurar compras**.
 - Apple exige el botón *Restaurar compras* (está en la pantalla de tienda) y, para vender, cuenta de desarrollador de pago.
+
+
+## Firmar el AAB (Google Play)
+
+Play te pide firmar el AAB con una **clave de subida** (*upload key*). Usa **Play App Signing** (es lo que Play activa por defecto): Google guarda la clave real de firma de la app y tú solo subes con la clave de subida; si pierdes la clave de subida se puede restablecer desde Play Console (si pierdes una clave de firma propia, la app queda huérfana).
+
+1. Crea la clave una sola vez (te pedirá contraseñas y datos; **guárdala fuera del repo**, con copia de seguridad y las contraseñas en un gestor):
+   ```
+   keytool -genkeypair -v -keystore c2hell-upload.jks -alias c2hell -keyalg RSA -keysize 2048 -validity 10000
+   ```
+   (`keytool` viene con el JDK 21 que ya usas para Gradle.)
+2. En la raíz del repo crea `keystore.properties` (ya está en `.gitignore`, no lo subas):
+   ```
+   storeFile=C:\\claves\\c2hell-upload.jks
+   storePassword=TU_CONTRASEÑA
+   keyAlias=c2hell
+   keyPassword=TU_CONTRASEÑA_DE_CLAVE
+   ```
+   (o variables de entorno `C2_KS_FILE`, `C2_KS_PASS`, `C2_KS_ALIAS`, `C2_KS_KEYPASS`).
+3. `npm run aab` → `dist/C2HELL-release.aab`, ya firmado (comprueba la firma con `jarsigner` si está disponible).
+4. En Play Console: *Pruebas internas → Crear versión → Subir el AAB*. Si te pregunta por Play App Signing, acepta («Usar la clave de firma generada por Google»).
+5. Cada subida necesita un `versionCode` mayor: lo sube solo el empaquetado (ver «Versiones automáticas» en el README).

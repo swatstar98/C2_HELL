@@ -8,6 +8,5 @@ server/data/
 .env
 dist/
 music_out/
-social/**/*.png
-assets/logo/*.png
-.wrangler/
+music_out/
+keystore.properties

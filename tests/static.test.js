@@ -140,3 +140,18 @@ test('privacy.html: 5 idiomas, contacto y cubre las funciones online', () => {
 test('capacitor.config.json: el ID de paquete es el registrado en Google Play (no se puede cambiar una vez publicado)', () => {
   assert.equal(JSON.parse(rd('capacitor.config.json')).appId, 'com.rotorliftsim.c2hell');
 });
+
+// ---- firma ----
+test('signing: lee keystore.properties/entorno y falla con mensajes claros', () => {
+  const os = require('os'), tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'c2sign-')), S = require('../tools/signing');
+  assert.throws(() => S.load(tmp, {}), /No hay clave de firma/);
+  fs.writeFileSync(path.join(tmp, 'k.jks'), 'x');
+  fs.writeFileSync(path.join(tmp, 'keystore.properties'), '# comentario\nstoreFile=k.jks\nstorePassword=abc\nkeyAlias=c2hell\n');
+  const r = S.load(tmp, {}); assert.ok(r.args.includes('-Pandroid.injected.signing.key.password=abc'), 'keyPassword por defecto = storePassword'); assert.ok(r.args.some(a => a.endsWith('store.file=' + path.join(tmp, 'k.jks'))));
+  fs.writeFileSync(path.join(tmp, 'keystore.properties'), 'storeFile=falta.jks\nstorePassword=a\nkeyAlias=b\n'); assert.throws(() => S.load(tmp, {}), /No existe el keystore/);
+  fs.writeFileSync(path.join(tmp, 'keystore.properties'), 'storeFile=k.jks\nstorePassword=a\n'); assert.throws(() => S.load(tmp, {}), /keyAlias/);
+  assert.equal(S.load(tmp, { C2_KS_FILE: path.join(tmp, 'k.jks'), C2_KS_PASS: 'p', C2_KS_ALIAS: 'al' }).args.length, 4, 'las variables de entorno mandan');
+  assert.deepEqual(S.parse('storeFile=C:\\\\claves\\\\a.jks'), { storeFile: 'C:\\claves\\a.jks' });
+  assert.ok(/keystore\.properties/.test(rd('.gitignore')), 'keystore.properties fuera de git');
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
