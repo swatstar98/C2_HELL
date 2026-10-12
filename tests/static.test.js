@@ -128,6 +128,13 @@ test('build_www (sin gastar número): genera version.js, caché del SW y config 
 });
 
 // ---- política de privacidad ----
+test('delete-data.html: 5 idiomas, contacto, nombre de la app/desarrollador y se publica con Pages', () => {
+  const h = rd('delete-data.html');
+  for (const l of ['es', 'en', 'fr', 'de', 'pt']) assert.ok(new RegExp('<section id="' + l + '" lang="' + l + '"').test(h), 'falta la sección ' + l);
+  assert.ok((h.match(/rotorliftsim@gmail\.com/g) || []).length >= 5 && h.includes('C2 HELL') && h.includes('Roberto Linares'));
+  assert.ok(/delete-data\.html/.test(rd('tools/pages.workflow.yml')), 'el workflow de Pages publica delete-data.html');
+});
+
 test('privacy.html: 5 idiomas, contacto y cubre las funciones online', () => {
   const h = rd('privacy.html');
   for (const l of LANGS) assert.match(h, new RegExp('<section id="' + l + '" lang="' + l + '"'), 'falta la sección ' + l);
