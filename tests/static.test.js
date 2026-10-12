@@ -135,3 +135,8 @@ test('privacy.html: 5 idiomas, contacto y cubre las funciones online', () => {
   const cfg = rd('config.js'); assert.match(cfg, /reportEmail: 'rotorliftsim@gmail.com'/, 'el contacto de la política coincide con config.js');
   assert.ok(rd('tools/build_www.js').includes("'privacy.html'"), 'privacy.html se publica con la build');
 });
+
+// ---- identidad de la app ----
+test('capacitor.config.json: el ID de paquete es el registrado en Google Play (no se puede cambiar una vez publicado)', () => {
+  assert.equal(JSON.parse(rd('capacitor.config.json')).appId, 'com.rotorliftsim.c2hell');
+});

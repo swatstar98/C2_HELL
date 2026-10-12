@@ -38,7 +38,7 @@ npm install
 npm run native:add:ios         # genera ios/, lo parchea (solo vertical, sin barra de estado) y crea los iconos
 npm run ios                    # abre Xcode
 ```
-En Xcode: *App → Signing & Capabilities* → elige tu equipo y un Bundle Identifier propio (por defecto `com.swatstar.c2hell`), conecta el iPhone y pulsa Run. Para TestFlight: *Product → Archive → Distribute App*.
+En Xcode: *App → Signing & Capabilities* → elige tu equipo y un Bundle Identifier propio (por defecto `com.rotorliftsim.c2hell`), conecta el iPhone y pulsa Run. Para TestFlight: *Product → Archive → Distribute App*.
 El workflow **iOS** compila una build de simulador sin firma (comprueba que el proyecto compila), no genera IPA.
 
 ## 4. Qué está verificado y qué no
