@@ -209,8 +209,35 @@ const view = { w: 1, h: 1, dpr: 1, s: 1, ox: 0, oy: 0, R: 12, fit: 1, zoom: 1, z
 const cv = $('#c'); let ctx = cv.getContext('2d');
 const bg = document.createElement('canvas');
 
-function saveGet() { try { return JSON.parse(localStorage.getItem('c2hell.save') || '{}'); } catch (e) { return {}; } }
-function savePut(o) { try { localStorage.setItem('c2hell.save', JSON.stringify(o)); } catch (e) { /* sin almacenamiento */ } }
+// Guardado: localStorage 'c2hell.save' = JSON { v, set, stars, up, cp, ... }. `v` es la versión del formato (SAVE_V).
+// Al cargar se migra a la versión actual (SAVE_MIGRATIONS[n] lleva de la n a la n+1) y se sanea; un guardado ilegible se aparta en
+// 'c2hell.save.bak' en lugar de perderse sin más. Para cambiar el formato: sube SAVE_V y añade la migración.
+const SAVE_V = 2;
+const SAVE_MIGRATIONS = {
+  1(o) {   // v1 (sin campo v) → v2: tipos garantizados, ajustes válidos
+    ['stars', 'up', 'ach', 'life', 'medals', 'rec', 'iap', 'set', 'hist', 'endless', 'daily', 'special'].forEach(k => { if (o[k] !== undefined && (o[k] === null || typeof o[k] !== 'object' || Array.isArray(o[k]))) delete o[k]; });
+    if (!(o.cp >= 0) || !isFinite(o.cp)) delete o.cp;
+    if (o.set) { if (!DIFF[o.set.diff]) delete o.set.diff; if (![1, 1.15, 1.3].includes(o.set.ui)) delete o.set.ui; if (![.85, 1, 1.25].includes(o.set.scale)) delete o.set.scale; }
+    return o;
+  }
+};
+function saveMigrate(o) {
+  let v = Number.isInteger(o.v) && o.v >= 1 ? o.v : 1;
+  if (v > SAVE_V) return o;   // guardado de una versión más nueva: se respeta tal cual (no se rebaja)
+  for (; v < SAVE_V; v++) o = SAVE_MIGRATIONS[v](o);
+  o.v = SAVE_V; return o;
+}
+function saveGet() {
+  let raw = null;
+  try { raw = localStorage.getItem('c2hell.save'); } catch (e) { return {}; }
+  if (!raw) return {};
+  let o = null;
+  try { o = JSON.parse(raw); } catch (e) { /* ilegible */ }
+  if (!o || typeof o !== 'object' || Array.isArray(o)) { try { localStorage.setItem('c2hell.save.bak', raw); localStorage.removeItem('c2hell.save'); } catch (e) { /* sin almacenamiento */ } return {}; }
+  if (o.v !== SAVE_V) { try { const bak = raw; o = saveMigrate(o); if (o.v === SAVE_V) { localStorage.setItem('c2hell.save.v' + (JSON.parse(bak).v || 1), bak); localStorage.setItem('c2hell.save', JSON.stringify(o)); } } catch (e) { /* se usa en memoria */ } }
+  return o;
+}
+function savePut(o) { try { if (!(o.v > SAVE_V)) o.v = SAVE_V; localStorage.setItem('c2hell.save', JSON.stringify(o)); } catch (e) { /* sin almacenamiento */ } }
 const SET = Object.assign({ snd: true, vib: true, rings: true, scale: 1, tutDone: false, cos: {}, diff: 'normal', music: true, voice: true, cb: false, ui: 1, ap: false, online: false, nick: '' }, saveGet().set || {});
 function saveSet() { const o = saveGet(); o.set = SET; savePut(o); }
 const CB = { red: '#ff8a1f', green: '#56d4ff', amber: '#f0e442' }, CN = { red: C.red, green: C.green, amber: C.amber };   // modo daltónico: naranja / celeste / amarillo en lugar de rojo / verde / ámbar
@@ -2315,12 +2342,13 @@ const Net = {
   top(mode, key) { return this.req('GET', '/scores?mode=' + encodeURIComponent(mode) + '&key=' + encodeURIComponent(key || '') + '&limit=20'); }
 };
 const SAVE_KEYS = ['stars', 'up', 'cp', 'ach', 'life', 'medals', 'rec', 'endless', 'daily', 'special', 'hist'];
-function exportSave() { const s = saveGet(), o = {}; for (const k of SAVE_KEYS) if (s[k] !== undefined) o[k] = s[k]; return 'C2H1.' + btoa(unescape(encodeURIComponent(JSON.stringify(o)))); }
+function exportSave() { const s = saveGet(), o = { v: SAVE_V }; for (const k of SAVE_KEYS) if (s[k] !== undefined) o[k] = s[k]; return 'C2H1.' + btoa(unescape(encodeURIComponent(JSON.stringify(o)))); }
 function importSave(txt) {
   try {
     txt = String(txt || '').trim(); if (txt.slice(0, 5) !== 'C2H1.') return false;
     const o = JSON.parse(decodeURIComponent(escape(atob(txt.slice(5))))); if (!o || typeof o !== 'object' || Array.isArray(o)) return false;
-    const s = saveGet(); for (const k of SAVE_KEYS) if (o[k] !== undefined) s[k] = o[k]; savePut(s); return true;
+    if (Number.isInteger(o.v) && o.v > SAVE_V) return false;   // código de una versión más nueva del juego
+    const inc = saveMigrate(Object.assign({}, o)), s = saveGet(); for (const k of SAVE_KEYS) if (inc[k] !== undefined) s[k] = inc[k]; savePut(s); return true;
   } catch (e) { return false; }
 }
 function showSaveTools(back) {
@@ -2792,7 +2820,7 @@ function showCredits(back) {
     sec(tr('cr.hist'), tr('cr.histT')) +
     sec(tr('cr.music'), 'VSCO 2 Community Edition · Versilian Studios · CC0<br><span class="dim">' + tr('cr.musicT') + '</span>') +
     sec(tr('cr.tech'), 'Capacitor · Web Audio · Canvas 2D<br><span class="dim">' + tr('cr.techT') + '</span>') +
-    sec(tr('cr.contact'), '<a href="mailto:' + (cfg.reportEmail || 'rotorliftsim@gmail.com') + '" style="color:var(--cyan)">' + (cfg.reportEmail || 'rotorliftsim@gmail.com') + '</a>') +
+    sec(tr('cr.contact'), '<a href="mailto:' + (cfg.reportEmail || 'rotorliftsim@gmail.com') + '" style="color:var(--cyan)">' + (cfg.reportEmail || 'rotorliftsim@gmail.com') + '</a><br><a href="' + (cfg.privacyUrl || 'privacy.html') + '" target="_blank" rel="noopener" style="color:var(--cyan)">' + tr('cr.privacy') + '</a>') +
     '<p class="sub">' + tr('cr.thanks') + '</p><button class="big" data-a="back">' + tr('back.menu') + '</button>');
   $('[data-a=back]', o).onclick = back || showMenu;
 }

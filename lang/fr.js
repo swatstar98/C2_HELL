@@ -96,6 +96,7 @@ I18N.add('fr', {
   "th.australia.sub": "Mers de Timor et d'Arafura",
   "map.hostile": "ZONE HOSTILE",
   "pl.MORÓN": "MORON",
+  "pl.MCARTHUR R.": "MCARTHUR R.",
   "pl.ROMA": "ROME",
   "site.name": "SITE-{n}",
   "hint.plan": "<b>PRÉPARATION</b> (en pause) : placez des défenses et répartissez vos avions entre les bases. Appuyez sur <b>LANCER L'OPÉRATION</b> quand vous êtes prêt.",

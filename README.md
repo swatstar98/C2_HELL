@@ -36,6 +36,9 @@ También vale abrir `index.html` con doble clic; el service worker y el portapap
 | `npm run www` | Copia la web a `www/` (lo que empaqueta Capacitor; `www/` no se versiona) |
 | `npm run apk` | APK de depuración en `dist/` con todo desbloqueado |
 | `npm run ver` / `ver:minor` / `ver:major` | Muestra la versión / sube minor (1.0.x→1.1.0) / sube major. Fuente única: `version.json` |
+| `npm test` | Suite completa: estática (sintaxis, i18n ×5, archivos, fichas de tienda, build) + navegador (arranque por idioma, simulación de niveles/misiones/modos, tienda, guardado, offline, accesibilidad). `C2_FULL=1` = todas las misiones; `C2_CHROMIUM=/ruta` si Playwright no tiene su Chromium |
+| `npm run test:static` | Solo la parte sin navegador (~1 s) |
+| `npm run lint` | ESLint (`eslint.config.js`): 0 errores; detecta variables no definidas |
 | `npm run aab` | AAB de Play Store con la tienda activada (necesita keystore) |
 | `npm run icons` | Regenera iconos desde `tools/icon*.svg` |
 | `npm run server` | Servidor de referencia para extras online (opcional) |
@@ -132,3 +135,11 @@ Simbología NTDS: fuente **NTDS Icons** de Peter Ellis Jones — https://github.
 `version.json` = `{major, minor, patch, build}`. Cada empaquetado (`npm run www|sync|apk|aab…`) sube **patch y build** una vez y propaga el número:
 `www/version.js` (`window.C2_VERSION`, visible en Créditos e Informe), `www/sw.js` (caché nueva, ya no hay que tocar `VER` a mano), `www/config.js`, Android (`versionCode`=build, `versionName`) e iOS (`CURRENT_PROJECT_VERSION`, `MARKETING_VERSION`) vía `tools/patch_native.js`.
 `C2_NO_BUMP=1` (o `--no-bump`) empaqueta sin gastar número. Commitea `version.json` tras publicar una build para que no se repitan códigos.
+
+## Guardado
+
+`localStorage['c2hell.save']` lleva `v` (= `SAVE_V` en `game.js`). Al cargar se migra por pasos (`SAVE_MIGRATIONS[n]`: n → n+1) y se guarda una copia del original en `c2hell.save.v<n>`; un JSON ilegible se aparta en `c2hell.save.bak`. Para cambiar el formato: sube `SAVE_V` y añade la migración (y un test en `tests/game.test.js`). Un código de exportación de una versión futura se rechaza en lugar de corromper el progreso.
+
+## Cumplimiento de tienda
+
+`privacy.html` (política en 5 idiomas, se publica con la build) y `store/COMPLIANCE.md` (respuestas de Data safety / App Privacy, clasificación por edad, licencias y lista previa al envío). Pon la URL pública en `config.js → privacyUrl`.

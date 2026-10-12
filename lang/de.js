@@ -96,6 +96,7 @@ I18N.add('de', {
   "th.australia.sub": "Timor- und Arafurasee",
   "map.hostile": "FEINDGEBIET",
   "pl.MORÓN": "MORÓN",
+  "pl.MCARTHUR R.": "MCARTHUR R.",
   "pl.ROMA": "ROM",
   "site.name": "STELLUNG-{n}",
   "hint.plan": "<b>VORBEREITUNG</b> (pausiert): Platziere Abwehrstellungen und verteile deine Flugzeuge auf die Basen. Drücke <b>EINSATZ STARTEN</b>, wenn du bereit bist.",

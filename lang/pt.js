@@ -96,6 +96,7 @@ I18N.add('pt', {
   "th.australia.sub": "Mares de Timor e Arafura",
   "map.hostile": "ZONA HOSTIL",
   "pl.MORÓN": "MORÓN",
+  "pl.MCARTHUR R.": "MCARTHUR R.",
   "pl.ROMA": "ROMA",
   "site.name": "SÍTIO-{n}",
   "hint.plan": "<b>PREPARAÇÃO</b> (em pausa): coloque defesas e distribua as suas aeronaves pelas bases. Prima <b>INICIAR OPERAÇÃO</b> quando estiver pronto.",

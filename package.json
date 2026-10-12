@@ -5,6 +5,9 @@
   "description": "C2 HELL — lite-sim de mando y control de defensa aérea (web + Android + iOS con Capacitor)",
   "scripts": {
     "serve": "node tools/serve.js",
+    "test": "node --test --test-reporter=spec \"tests/*.test.js\"",
+    "test:static": "node --test --test-reporter=spec tests/static.test.js",
+    "lint": "eslint .",
     "www": "node tools/build_www.js",
     "icons": "node tools/make_icons.js",
     "ver": "node tools/version.js",
@@ -38,6 +41,9 @@
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.5.3",
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0",
     "playwright": "^1.48.0"
   }
 }

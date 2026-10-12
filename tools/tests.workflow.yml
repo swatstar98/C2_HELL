@@ -1,0 +1,21 @@
+# Copia lista para usar: muévela a .github/workflows/tests.yml (las herramientas remotas no pueden escribir en esa carpeta).
+name: Tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+        env: { PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1' }
+      - run: npm run lint
+      - run: npx playwright install --with-deps chromium
+      # C2_FULL=1: todas las misiones de Corea y más niveles (en local `npm test` corre una muestra rápida)
+      - run: npm test
+        env: { C2_FULL: '1' }
