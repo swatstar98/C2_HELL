@@ -3,7 +3,7 @@
 // y se ejecuta tras `cap add` y tras cada `cap sync` (npm run sync).
 //   Android: orientación vertical fija, permiso de vibración, pantalla completa inmersiva.
 //   iOS:     solo vertical (iPhone y iPad), sin barra de estado, sin pregunta de cifrado en App Store Connect.
-const fs = require('fs'), path = require('path');
+const fs = require('fs'), path = require('path'), ver = require('./version');
 const root = path.join(__dirname, '..'), only = process.argv[2];
 const rd = f => fs.readFileSync(f, 'utf8'), wr = (f, s) => fs.writeFileSync(f, s);
 let touched = 0;
@@ -23,7 +23,14 @@ function android() {
     if (!/windowLayoutInDisplayCutoutMode/.test(t)) t = t.replace(/(<style name="AppTheme\.NoActionBar"[^>]*>)/, '$1\n        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>');
     wr(styles, t);
   }
-  console.log('android/ parcheado: orientación vertical, VIBRATE, cutout');
+  // versión (lee version.json sin subirlo: el número lo sube build_www.js)
+  const V = ver.read(), gr = path.join(root, 'android/app/build.gradle');
+  if (fs.existsSync(gr)) {
+    let g = rd(gr);
+    g = g.replace(/versionCode\s+\d+/, 'versionCode ' + V.build).replace(/versionName\s+"[^"]*"/, 'versionName "' + ver.name(V) + '"');
+    wr(gr, g);
+  }
+  console.log('android/ parcheado: orientación vertical, VIBRATE, cutout, versión ' + ver.name(V) + ' (' + V.build + ')');
 }
 
 function ios() {
@@ -36,7 +43,9 @@ function ios() {
   const add = (key, val) => { if (!s.includes('<key>' + key + '</key>')) s = s.replace(/<\/dict>\s*<\/plist>/, '\t<key>' + key + '</key>\n\t' + val + '\n</dict>\n</plist>'); };
   add('UIStatusBarHidden', '<true/>'); add('UIViewControllerBasedStatusBarAppearance', '<false/>'); add('ITSAppUsesNonExemptEncryption', '<false/>'); add('UIRequiresFullScreen', '<true/>');
   wr(plist, s); touched++;
-  console.log('ios/ parcheado: solo vertical, sin barra de estado, ITSAppUsesNonExemptEncryption=false');
+  const V = ver.read(), pbx = path.join(root, 'ios/App/App.xcodeproj/project.pbxproj');
+  if (fs.existsSync(pbx)) wr(pbx, rd(pbx).replace(/MARKETING_VERSION = [^;]*;/g, 'MARKETING_VERSION = ' + ver.name(V) + ';').replace(/CURRENT_PROJECT_VERSION = [^;]*;/g, 'CURRENT_PROJECT_VERSION = ' + V.build + ';'));
+  console.log('ios/ parcheado (versión ' + ver.name(V) + ' build ' + V.build + '): solo vertical, sin barra de estado, ITSAppUsesNonExemptEncryption=false');
 }
 
 if (!only || only === 'android') android();

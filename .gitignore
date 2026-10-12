@@ -8,4 +8,5 @@ server/data/
 .env
 dist/
 music_out/
-music_out/
+social/**/*.png
+assets/logo/*.png

@@ -2766,9 +2766,14 @@ function confirmBtn(btn, fn, txt) {
 const ERRBUF = [];
 addEventListener('error', e => { ERRBUF.push(String(e.message).slice(0, 140) + ' @' + String(e.filename || '').split('/').pop() + ':' + (e.lineno || 0)); if (ERRBUF.length > 6) ERRBUF.shift(); });
 addEventListener('unhandledrejection', e => { ERRBUF.push('promise: ' + String(e.reason && e.reason.message || e.reason).slice(0, 140)); if (ERRBUF.length > 6) ERRBUF.shift(); });
+function verStr(long) {
+  const v = window.C2_VERSION, cfg = window.C2_CONFIG || {};
+  if (!v) return cfg.version || '?';
+  return long ? v.name + ' (build ' + v.code + (v.commit ? ' · ' + v.commit : '') + (v.date ? ' · ' + v.date : '') + (v.channel && v.channel !== 'debug' ? ' · ' + v.channel : '') + ')' : v.name;
+}
 function reportInfo() {
   const cfg = window.C2_CONFIG || {}, L = [];
-  L.push('Versión: ' + (cfg.version || '?') + ' · idioma: ' + I18N.lang + ' · UI x' + (SET.ui || 1));
+  L.push('Versión: ' + verStr(true) + ' · idioma: ' + I18N.lang + ' · UI x' + (SET.ui || 1));
   L.push('Dispositivo: ' + navigator.userAgent.replace(/\s+/g, ' ').slice(0, 160));
   L.push('Pantalla: ' + innerWidth + 'x' + innerHeight + ' @' + (window.devicePixelRatio || 1) + (window.Capacitor ? ' · app nativa' : ' · web'));
   if (G) {

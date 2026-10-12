@@ -35,6 +35,7 @@ También vale abrir `index.html` con doble clic; el service worker y el portapap
 | `npm run serve` | Servidor estático local |
 | `npm run www` | Copia la web a `www/` (lo que empaqueta Capacitor; `www/` no se versiona) |
 | `npm run apk` | APK de depuración en `dist/` con todo desbloqueado |
+| `npm run ver` / `ver:minor` / `ver:major` | Muestra la versión / sube minor (1.0.x→1.1.0) / sube major. Fuente única: `version.json` |
 | `npm run aab` | AAB de Play Store con la tienda activada (necesita keystore) |
 | `npm run icons` | Regenera iconos desde `tools/icon*.svg` |
 | `npm run server` | Servidor de referencia para extras online (opcional) |
@@ -125,3 +126,9 @@ Android/iOS/tienda/CI: [`README_DELIVERY.md`](README_DELIVERY.md). Resumen: `npm
 
 ## Créditos y licencias
 Simbología NTDS: fuente **NTDS Icons** de Peter Ellis Jones — https://github.com/peterellisjones/ntds-icons (fuente SIL OFL 1.1, código MIT/Apache-2.0; archivos y licencias en `assets/fonts/`). Datos geográficos: Natural Earth (dominio público) vía world-atlas. Fotos de archivo: ver créditos en `hist/img/credits.js` (ninguna incluida por ahora).
+
+## Versiones automáticas
+
+`version.json` = `{major, minor, patch, build}`. Cada empaquetado (`npm run www|sync|apk|aab…`) sube **patch y build** una vez y propaga el número:
+`www/version.js` (`window.C2_VERSION`, visible en Créditos e Informe), `www/sw.js` (caché nueva, ya no hay que tocar `VER` a mano), `www/config.js`, Android (`versionCode`=build, `versionName`) e iOS (`CURRENT_PROJECT_VERSION`, `MARKETING_VERSION`) vía `tools/patch_native.js`.
+`C2_NO_BUMP=1` (o `--no-bump`) empaqueta sin gastar número. Commitea `version.json` tras publicar una build para que no se repitan códigos.
