@@ -1,11 +1,14 @@
-// Extremo a extremo: el juego real (Chromium) hablando con el backend de Vercel (handler + api/index.js) y Redis simulado.
-const test = require('node:test'), assert = require('node:assert/strict'), http = require('http'), Module = require('module');
-const { serve, browser, open } = require('./lib'), fakeRedis = require('./fake-redis');
-let srv, br, api, apiUrl, store;
+// Extremo a extremo: el juego real (Chromium) hablando con el backend de Cloudflare (handler real + SQLite con el schema de producción).
+const test = require('node:test'), assert = require('node:assert/strict'), http = require('http');
+const { serve, browser, open } = require('./lib');
+let srv, br, api, apiUrl, env;
 test.before(async () => {
-  store = fakeRedis(); const orig = Module._load; Module._load = function (r, ...a) { if (/lib\/redis$/.test(r)) return { redis: () => store }; return orig.call(this, r, ...a); };
-  const fn = require('../vercel/api/index.js'); Module._load = orig;
-  api = http.createServer(async (req, res) => { let b = ''; for await (const c of req) b += c; req.body = b || undefined; const u = new URL(req.url, 'http://x'); req.url = '/api/index?p=' + encodeURIComponent(u.pathname.slice(1)) + (u.search ? '&' + u.search.slice(1) : ''); await fn(req, res); });
+  const H = await import('../cloudflare/src/handler.js'); env = { DB: require('./d1')(), ADMIN_TOKEN: 'x' };
+  api = http.createServer(async (req, res) => {   // puente node → Request/Response, como hace el runtime de Workers
+    let b = ''; for await (const c of req) b += c;
+    const r = await H.handle(new Request('http://x' + req.url, { method: req.method, headers: req.headers, body: ['GET', 'HEAD'].includes(req.method) ? undefined : b }), env, Date.now(), req.socket.remoteAddress);
+    res.writeHead(r.status, Object.fromEntries(r.headers)); res.end(await r.text());
+  });
   await new Promise(r => api.listen(0, '127.0.0.1', r)); apiUrl = 'http://127.0.0.1:' + api.address().port;
   srv = await serve(); br = await browser();
 });
@@ -22,8 +25,8 @@ test('con opt-in: eventos, marcador y guardado en la nube funcionan contra el ba
   assert.ok(await pg.evaluate(() => __C2.SET.online), 'el opt-in se aplica');
   await pg.evaluate(() => { __C2.newGame(1); __C2.G.demo = false; __C2.startOps(1); for (let i = 0; i < 6000 && !__C2.G.over; i++) __C2.step(1 / 20); });
   await pg.waitForFunction(() => __C2.G.over); await pg.waitForTimeout(800);
-  const evs = [...store.kv.entries()].filter(([k]) => k.startsWith('st:')).flatMap(([, h]) => Object.keys(h)); assert.ok(evs.includes('ev:level_end'), 'llegó level_end: ' + evs);
-  assert.ok(![...store.kv.keys()].some(k => /127\.0\.0\.1/.test(k)), 'sin IP en claro');
+  const evs = env.DB.raw.prepare('SELECT k FROM counters').all().map(r => r.k); assert.ok(evs.includes('ev:level_end'), 'llegó level_end: ' + evs);
+  assert.ok(!JSON.stringify(env.DB.raw.prepare('SELECT * FROM dau').all()).includes('127.0.0.1'), 'sin IP guardada');
   // marcador (modo sin fin) y guardado por código
   const r = await pg.evaluate(async () => { const A = __C2; A.Net.score('endless', '', 321, {}); await new Promise(r => setTimeout(r, 400)); const top = await A.Net.top('endless', ''); const up = await A.Net.req('POST', '/save', { data: A.exportSave() }); const down = await A.Net.req('GET', '/save/' + up.code); return { top: top.top, code: up.code, ok: A.importSave(down.data) }; });
   assert.deepEqual(r.top, [{ nick: 'Tester', score: 321 }]); assert.match(r.code, /^[0-9A-F]{10}$/); assert.equal(r.ok, true);

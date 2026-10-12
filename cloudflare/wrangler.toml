@@ -1,0 +1,15 @@
+name = "c2hell-api"
+main = "src/index.js"
+compatibility_date = "2025-10-01"
+
+# Base de datos D1: créala con `npx wrangler d1 create c2hell` y pega aquí el database_id que te devuelve.
+[[d1_databases]]
+binding = "DB"
+database_name = "c2hell"
+database_id = "PEGA-AQUI-EL-ID"
+
+# Limpieza diaria de datos caducados (guardados 365 d, marcadores 120 d, contadores 400 d)
+[triggers]
+crons = ["17 3 * * *"]
+
+# Secreto para /stats:  npx wrangler secret put ADMIN_TOKEN

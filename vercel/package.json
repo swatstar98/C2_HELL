@@ -1,7 +1,0 @@
-{
-  "name": "c2hell-telemetry",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Backend opcional de C2 HELL en Vercel (funciones sin servidor + Upstash Redis). Sin dependencias.",
-  "engines": { "node": ">=20" }
-}

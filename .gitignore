@@ -10,3 +10,4 @@ dist/
 music_out/
 social/**/*.png
 assets/logo/*.png
+.wrangler/

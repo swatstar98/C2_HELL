@@ -146,4 +146,4 @@ Simbología NTDS: fuente **NTDS Icons** de Peter Ellis Jones — https://github.
 
 ## Backend online (opcional)
 
-`vercel/` es un backend sin servidor (Vercel + Upstash Redis) con el mismo contrato que `server/server.js`; sirve para telemetría opt-in, marcadores y guardado en la nube sin mantener la Raspberry. Guía en `vercel/README.md`.
+`cloudflare/` es un backend sin servidor (Cloudflare Workers + D1) con el mismo contrato que `server/server.js`; sirve para telemetría opt-in, marcadores y guardado en la nube sin mantener la Raspberry. Guía en `cloudflare/README.md`.
