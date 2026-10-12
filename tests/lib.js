@@ -28,6 +28,8 @@ async function open(b, base, q, opt) {
   const ctx = await b.newContext({ viewport: { width: opt.w || 420, height: opt.h || 860 }, hasTouch: true });
   if (opt.init) await ctx.addInitScript(opt.init);
   // opt.store: sirve config.js con la tienda activada, como hace `build_www.js --store` en la build de tienda
+  // opt.endpoint: apunta config.js a un backend de pruebas
+  if (opt.endpoint) await ctx.route('**/config.js', async r => { const t = await (await r.fetch()).text(); await r.fulfill({ contentType: 'text/javascript', body: t.replace("endpoint: ''", "endpoint: '" + opt.endpoint + "'") }); });
   if (opt.store) await ctx.route('**/config.js', async r => { const t = await (await r.fetch()).text(); await r.fulfill({ contentType: 'text/javascript', body: t.replace('enabled: false', 'enabled: true') }); });
   const pg = await ctx.newPage(); pg.errs = [];
   pg.on('pageerror', e => pg.errs.push('pageerror: ' + e.message));

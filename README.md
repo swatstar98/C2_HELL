@@ -143,3 +143,7 @@ Simbología NTDS: fuente **NTDS Icons** de Peter Ellis Jones — https://github.
 ## Cumplimiento de tienda
 
 `privacy.html` (política en 5 idiomas, se publica con la build) y `store/COMPLIANCE.md` (respuestas de Data safety / App Privacy, clasificación por edad, licencias y lista previa al envío). Pon la URL pública en `config.js → privacyUrl`.
+
+## Backend online (opcional)
+
+`vercel/` es un backend sin servidor (Vercel + Upstash Redis) con el mismo contrato que `server/server.js`; sirve para telemetría opt-in, marcadores y guardado en la nube sin mantener la Raspberry. Guía en `vercel/README.md`.
